@@ -1,5 +1,7 @@
 # Backstage on AKS
 
+<img width="745" alt="Screenshot 2025-03-26 at 7 02 58 PM" src="https://github.com/user-attachments/assets/099b5328-9e70-461c-bc9a-cc62846f4eff" />
+
 This repository contains resources and instructions for deploying [Backstage](https://backstage.io/) on Azure Kubernetes Service (AKS).
 
 ## Prerequisites
