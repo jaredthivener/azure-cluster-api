@@ -1,0 +1,11 @@
+app:
+  title: Backstage
+  baseUrl: http://localhost:3000
+
+backend:
+  baseUrl: http://localhost:7000
+  listen:
+    port: 700
+::contentReference[oaicite:0]{index=0}
+ 
+
