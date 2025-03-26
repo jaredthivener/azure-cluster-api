@@ -2,6 +2,7 @@
 param postgresServerName string
 param location string = resourceGroup().location
 param adminUsername string
+@secure()
 param adminPassword string
 param skuName string = 'B_Gen5_2'
 
@@ -13,6 +14,7 @@ resource postgres 'Microsoft.DBforPostgreSQL/servers@2017-12-01' = {
     administratorLoginPassword: adminPassword
     version: '11'
     sslEnforcement: 'Enabled'
+    createMode: 'Default'
   }
   sku: {
     name: skuName
