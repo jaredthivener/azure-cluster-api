@@ -1,7 +1,6 @@
-// Bicep module for ACR
 param acrName string
-param acrSku string = 'Basic'
 param location string = resourceGroup().location
+param acrSku string = 'Basic'
 
 resource acr 'Microsoft.ContainerRegistry/registries@2021-06-01-preview' = {
   name: acrName
@@ -12,4 +11,4 @@ resource acr 'Microsoft.ContainerRegistry/registries@2021-06-01-preview' = {
   properties: {}
 }
 
-output acrLoginServer string = acr.properties.loginServer
+output acrName string = acr.name
