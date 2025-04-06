@@ -22,7 +22,7 @@ CNI_PLUGIN="cilium"
 # GitHub configuration
 GITHUB_ORG="jaredthivener"
 GITHUB_REPO="backstage-on-aks"
-GITHUB_TOKEN="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" # Replace this with a new GitHub personal access token that has the right permissions
+GITHUB_TOKEN="" # Replace this with a new GitHub personal access token that has the right permissions
 # For FluxCD, you need at least the following permissions:
 # - repo (full access)
 # - admin:repo_hook (read/write)
@@ -167,7 +167,7 @@ create_management_cluster() {
     
     # Verify cluster access
     log "INFO" "Verifying cluster access..."
-    kubectl get nodes || {
+    kubectl get nodes -o wide || {
         log "ERROR" "Failed to access AKS cluster."
         return 1
     }
@@ -424,7 +424,7 @@ import React/' packages/app/src/App.tsx
     # Update app-config.yaml with GitHub integration - without duplicating sections
     log "INFO" "Configuring GitHub integration..."
 
-    # First, check if GitHub integration already exists
+    # Update the GitHub integration section to consistently use environment variables
     if ! grep -q "integrations:" app-config.yaml; then
         # No integrations section exists, add the entire block
         cat <<EOF >> app-config.yaml
@@ -439,10 +439,10 @@ EOF
         # Integrations section exists, check if GitHub is already configured
         if ! grep -q "github:" app-config.yaml; then
             # Add just the GitHub integration under existing integrations section
-            sed -i.bak "/integrations:/a\
-  github:\
-    - host: github.com\
-      token: ${GITHUB_TOKEN}" app-config.yaml
+            sed -i.bak "/integrations:/a\\
+  github:\\
+    - host: github.com\\
+      token: \\\${GITHUB_TOKEN}" app-config.yaml
             rm -f app-config.yaml.bak
         else
             log "INFO" "GitHub integration already configured in app-config.yaml"
@@ -496,29 +496,29 @@ EOF
         log "INFO" "Scaffolder section already exists in app-config.yaml"
     fi
     
-    # Check if the file exists first
-    if [[ -f "backstage/app-config.yaml" ]]; then
-      # Create a temporary file
-      touch backstage/app-config.yaml.tmp
-      
-      # Find the line number of the duplicate GitHub integration section
-      duplicate_line=$(grep -n "^# GitHub integration$" backstage/app-config.yaml | tail -1 | cut -d: -f1)
-      
-      if [[ -n "$duplicate_line" ]]; then
-        # Calculate section end (typically 4 lines)
-        end_line=$((duplicate_line + 4))
+    # Check if the file exists first (use the correct path)
+    if [[ -f "app-config.yaml" ]]; then
+        # Create a temporary file
+        touch app-config.yaml.tmp
         
-        # Write to temporary file without the duplicate section
-        awk "NR < $duplicate_line || NR > $end_line" backstage/app-config.yaml > backstage/app-config.yaml.tmp
+        # Find the line number of the duplicate GitHub integration section
+        duplicate_line=$(grep -n "^# GitHub integration$" app-config.yaml | tail -1 | cut -d: -f1)
         
-        # Replace the original file
-        mv backstage/app-config.yaml.tmp backstage/app-config.yaml
-        
-        echo "Removed duplicate GitHub integration section from app-config.yaml"
-      else
-        echo "No duplicate GitHub integration section found"
-        rm backstage/app-config.yaml.tmp
-      fi
+        if [[ -n "$duplicate_line" ]]; then
+            # Calculate section end (typically 4 lines)
+            end_line=$((duplicate_line + 4))
+            
+            # Write to temporary file without the duplicate section
+            awk "NR < $duplicate_line || NR > $end_line" app-config.yaml > app-config.yaml.tmp
+            
+            # Replace the original file
+            mv app-config.yaml.tmp app-config.yaml
+            
+            echo "Removed duplicate GitHub integration section from app-config.yaml"
+        else
+            echo "No duplicate GitHub integration section found"
+            rm -f app-config.yaml.tmp
+        fi
     fi
 
     # Create template directories
