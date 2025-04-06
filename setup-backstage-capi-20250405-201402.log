@@ -1,0 +1,33 @@
+[2025-04-05 20:14:02] [INFO] ====================================================================
+[2025-04-05 20:14:02] [INFO]     Backstage + Cluster API Self-Service AKS Setup
+[2025-04-05 20:14:02] [INFO]     Created for: jaredthivener
+[2025-04-05 20:14:02] [INFO]     Date: 2025-04-05
+[2025-04-05 20:14:02] [INFO] ====================================================================
+[2025-04-05 20:14:02] [INFO] Verifying configuration values...
+[2025-04-05 20:14:02] [INFO] Checking prerequisites...
+[2025-04-05 20:14:02] [INFO] az version 2.71.0 meets minimum requirement (2.50.0)
+[2025-04-05 20:14:02] [INFO] kubectl version 1.32.3 meets minimum requirement (1.25.0)
+[2025-04-05 20:14:02] [INFO] flux version 2.5.1 meets minimum requirement (2.1.0)
+[2025-04-05 20:14:02] [INFO] clusterctl version 1.9.6 meets minimum requirement (1.5.0)
+[2025-04-05 20:14:02] [INFO] helm version 3.17.2 meets minimum requirement (3.13.0)
+[2025-04-05 20:14:03] [INFO] node version 20.19.0 meets minimum requirement (18.0.0)
+[2025-04-05 20:14:03] [INFO] yarn version 1.22.22 meets minimum requirement (1.22.0)
+[2025-04-05 20:14:03] [INFO] Logging in to Azure...
+[2025-04-05 20:14:03] [INFO] Setting Azure subscription...
+[2025-04-05 20:14:03] [INFO] Starting setup process...
+[2025-04-05 20:14:03] [INFO] 
+    ╭──────────────────────────────────────────────────────╮
+    │                                                      │
+    │   ███╗   ███╗ ██████╗ ███╗   ███╗████████╗           │
+    │   ████╗ ████║██╔════╝ ████╗ ████║╚══██╔══╝           │
+    │   ██╔████╔██║██║  ███╗██╔████╔██║   ██║              │
+    │   ██║╚██╔╝██║██║   ██║██║╚██╔╝██║   ██║              │
+    │   ██║ ╚═╝ ██║╚██████╔╝██║ ╚═╝ ██║   ██║              │
+    │   ╚═╝     ╚═╝ ╚═════╝ ╚═╝     ╚═╝   ╚═╝              │
+    │           MANAGEMENT CLUSTER SETUP                   │
+    │                                                      │
+    ╰──────────────────────────────────────────────────────╯
+[2025-04-05 20:14:03] [INFO] Checking if resource group rg-mgmt-aks-eastus exists...
+[2025-04-05 20:14:03] [INFO] Creating resource group rg-mgmt-aks-eastus...
+[2025-04-05 20:14:04] [INFO] Checking if AKS cluster mgmt-capi-cluster exists...
+[2025-04-05 20:14:05] [INFO] Creating AKS management cluster mgmt-capi-cluster...

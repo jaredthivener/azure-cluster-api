@@ -1,0 +1,175 @@
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: {{ clusterName }}
+  namespace: default
+  labels:
+    environment: {{ environment }}
+    businessUnit: {{ businessUnit }}
+    owner: {{ owner }}
+    managedBy: clusterapi
+spec:
+  clusterNetwork:
+    services:
+      cidrBlocks: ["10.1.0.0/16"]
+    pods:
+      cidrBlocks: ["10.0.0.0/16"]
+    serviceDomain: "cluster.local"
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedControlPlane
+    name: {{ clusterName }}-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedCluster
+    name: {{ clusterName }}
+---
+# Azure Resource Group
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureResourceGroup
+metadata:
+  name: rg-{{ businessUnit }}-aks-{{ environment }}-{{ region }}-001
+  namespace: default
+spec:
+  location: {{ region }}
+  tags:
+    environment: {{ environment }}
+    businessUnit: {{ businessUnit }}
+    owner: {{ owner }}
+    managedBy: clusterapi
+---
+# AKS Control Plane Configuration
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: AzureManagedControlPlane
+metadata:
+  name: {{ clusterName }}-control-plane
+  namespace: default
+spec:
+  location: {{ region }}
+  resourceGroupName: rg-{{ businessUnit }}-aks-{{ environment }}-{{ region }}-001
+  subscriptionID: {{ subscriptionId }}
+  version: {{ kubernetesVersion }}
+  sshPublicKey: ${SSH_PUBLIC_KEY}
+  dnsServiceIP: 10.1.0.10
+  networkPolicy: cilium
+  networkPlugin: azure
+  networkPluginMode: "Overlay"
+  disableLocalAccounts: true
+  addonProfiles:
+  - name: azurepolicy
+    enabled: true
+  - name: omsagent
+    enabled: true
+  - name: azureKeyvaultSecretsProvider
+    enabled: true
+  - name: cilium
+    enabled: true
+  identityRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureClusterIdentity
+    name: cluster-identity
+  virtualNetwork:
+    name: vnet-{{ businessUnit }}-aks-{{ environment }}-001
+    cidrBlock: {{ vnetCidr }}
+    subnet:
+      name: snet-aks-nodes-{{ environment }}-001
+      cidrBlock: {{ nodeCidr }}
+---
+# AKS Managed Cluster
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedCluster
+metadata:
+  name: {{ clusterName }}
+  namespace: default
+spec:
+  controlPlaneEndpoint:
+    host: {{ clusterName }}.azmk8s.io
+    port: 443
+  identityRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureClusterIdentity
+    name: cluster-identity
+  location: {{ region }}
+  resourceGroupName: rg-{{ businessUnit }}-aks-{{ environment }}-{{ region }}-001
+  tags:
+    environment: {{ environment }}
+    businessUnit: {{ businessUnit }}
+    owner: {{ owner }}
+    managedBy: clusterapi
+---
+# System Node Pool
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: {{ clusterName }}-system
+  namespace: default
+spec:
+  clusterName: {{ clusterName }}
+  replicas: {{ nodeCount }}
+  template:
+    spec:
+      bootstrap:
+        dataSecretName: ""
+      clusterName: {{ clusterName }}
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: {{ clusterName }}-system
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: {{ clusterName }}-system
+  namespace: default
+spec:
+  mode: System
+  osDiskSizeGB: 128
+  osDiskType: Managed
+  vmSize: {{ skuType }}
+  sku: AzureLinux
+  enableAutoScaling: true
+  minCount: {{ nodeCount }}
+  maxCount: {{ nodeCount | twice }}
+  maxPods: 30
+  nodeLabels:
+    nodepool: system
+    nodetype: system
+---
+# Worker Node Pool
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: {{ clusterName }}-worker
+  namespace: default
+spec:
+  clusterName: {{ clusterName }}
+  replicas: {{ nodeCount }}
+  template:
+    spec:
+      bootstrap:
+        dataSecretName: ""
+      clusterName: {{ clusterName }}
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: {{ clusterName }}-worker
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: {{ clusterName }}-worker
+  namespace: default
+spec:
+  mode: User
+  osDiskSizeGB: 128 
+  osDiskType: Managed
+  vmSize: {{ skuType }}
+  sku: AzureLinux
+  enableAutoScaling: true
+  minCount: {{ nodeCount }}
+  maxCount: {{ nodeCount | twice }}
+  maxPods: 30
+  nodeLabels:
+    nodepool: workload
+    nodetype: application
