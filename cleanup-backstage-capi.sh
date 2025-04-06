@@ -21,7 +21,7 @@ MGMT_CLUSTER_NAME="mgmt-capi-cluster"
 GITHUB_USER="jaredthivener"
 
 # Backstage configuration - must match setup script
-BACKSTAGE_DIR="${HOME}/backstage"
+BACKSTAGE_DIR="$(pwd)/backstage"  # Instead of "${HOME}/backstage"
 
 # Logging configuration
 LOG_FILE="$(pwd)/cleanup-backstage-capi-$(date +%Y%m%d-%H%M%S).log"

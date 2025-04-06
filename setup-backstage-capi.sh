@@ -22,7 +22,10 @@ CNI_PLUGIN="cilium"
 # GitHub configuration
 GITHUB_ORG="jaredthivener"
 GITHUB_REPO="backstage-on-aks"
-GITHUB_TOKEN="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"
+GITHUB_TOKEN="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" # Replace this with a new GitHub personal access token that has the right permissions
+# For FluxCD, you need at least the following permissions:
+# - repo (full access)
+# - admin:repo_hook (read/write)
 GITHUB_USER="jaredthivener"
 # GITHUB_EMAIL="${GITHUB_USER}@gmail.com"
 
@@ -146,6 +149,7 @@ create_management_cluster() {
             --network-plugin azure \
             --network-dataplane cilium \
             --network-policy ${CNI_PLUGIN} \
+            --zones 1 2 3 \
             --kubernetes-version "${K8S_VERSION}" || {
             log "ERROR" "Failed to create AKS cluster."
             return 1
@@ -385,9 +389,10 @@ setup_backstage() {
         return 1
     }
     
-    # Install GitHub plugins
+    # Install GitHub plugins - Fixed for newer Yarn versions
     log "INFO" "Installing GitHub plugins for Backstage..."
-    yarn add --cwd packages/app @backstage/plugin-github-actions @backstage/plugin-github-deployments @backstage/plugin-github-pull-requests || {
+    # Change to packages/app directory and then install correct plugin names
+    (cd packages/app && yarn add @backstage/plugin-github-actions @backstage/plugin-github-deployments @backstage/plugin-github-pull-requests-board) || {
         log "ERROR" "Failed to install GitHub plugins."
         return 1
     }
@@ -395,42 +400,84 @@ setup_backstage() {
     # Update App.tsx to include GitHub plugins
     log "INFO" "Updating App.tsx to include GitHub plugins..."
     
-    # First, let's add the imports at the top of the file
-    sed -i.bak '
-      /^import {/a \
-import { GithubActionsPlugin } from '"'"'@backstage/plugin-github-actions'"'"';\
+    # First, check if the plugins are already imported
+    if ! grep -q "GithubActionsPlugin" packages/app/src/App.tsx; then
+        # Add import statements at the top of the file, after React import
+        sed -i.bak '1,/^import React/s/^import React/import { GithubActionsPlugin } from '"'"'@backstage/plugin-github-actions'"'"';\
 import { GithubDeploymentsPlugin } from '"'"'@backstage/plugin-github-deployments'"'"';\
-import { GithubPullRequestsPlugin } from '"'"'@backstage/plugin-github-pull-requests'"'"';
-    ' packages/app/src/App.tsx
-    
-    # Then, let's add the plugins to the FlatRoutes section
-    sed -i.bak '
-      /<Route path="\/catalog" element={<CatalogIndexPage \/>/a \
+import { PullRequestsPage } from '"'"'@backstage/plugin-github-pull-requests-board'"'"';\
+import React/' packages/app/src/App.tsx
+    fi
+
+    # Then, let's add the plugins to the FlatRoutes section if they don't exist
+    if ! grep -q "element={<GithubActionsPlugin" packages/app/src/App.tsx; then
+        sed -i.bak '/<Route path="\/catalog" element={<CatalogIndexPage \/>/a \
         <Route path="/github-actions" element={<GithubActionsPlugin />} />\
         <Route path="/github-deployments" element={<GithubDeploymentsPlugin />} />\
-        <Route path="/github-pull-requests" element={<GithubPullRequestsPlugin />} />
-    ' packages/app/src/App.tsx
+        <Route path="/pull-requests" element={<PullRequestsPage />} />
+        ' packages/app/src/App.tsx
+    fi
     
     # Remove backup file
     rm -f packages/app/src/App.tsx.bak
     
-    # Update app-config.yaml with GitHub integration
+    # Update app-config.yaml with GitHub integration - without duplicating sections
     log "INFO" "Configuring GitHub integration..."
-    cat <<EOF >> app-config.yaml
+
+    # First, check if GitHub integration already exists
+    if ! grep -q "integrations:" app-config.yaml; then
+        # No integrations section exists, add the entire block
+        cat <<EOF >> app-config.yaml
 
 # GitHub integration
 integrations:
   github:
     - host: github.com
       token: \${GITHUB_TOKEN}
+EOF
+    else
+        # Integrations section exists, check if GitHub is already configured
+        if ! grep -q "github:" app-config.yaml; then
+            # Add just the GitHub integration under existing integrations section
+            sed -i.bak "/integrations:/a\
+  github:\
+    - host: github.com\
+      token: ${GITHUB_TOKEN}" app-config.yaml
+            rm -f app-config.yaml.bak
+        else
+            log "INFO" "GitHub integration already configured in app-config.yaml"
+        fi
+    fi
+
+    # Now check for and add the template configuration if it doesn't exist
+    if ! grep -q "catalog:" app-config.yaml || ! grep -q "locations:" app-config.yaml; then
+        # Add catalog template locations configuration
+        cat <<EOF >> app-config.yaml
 
 # Template configuration
 catalog:
   locations:
-    - type: file
-      target: ../templates/aks-clusters/template.yaml
+    - type: url
+      target: https://raw.githubusercontent.com/${GITHUB_ORG}/${GITHUB_REPO}/main/templates/aks-clusters/template.yaml
       rules:
         - allow: [Template]
+EOF
+    else
+        # Try to add the template location to existing catalog section
+        log "INFO" "Catalog section already exists, attempting to add template location"
+        if ! grep -q "${GITHUB_REPO}/main/templates/aks-clusters/template.yaml" app-config.yaml; then
+            sed -i.bak "/locations:/a\
+    - type: url\
+      target: https://raw.githubusercontent.com/${GITHUB_ORG}/${GITHUB_REPO}/main/templates/aks-clusters/template.yaml\
+      rules:\
+        - allow: [Template]" app-config.yaml
+            rm -f app-config.yaml.bak
+        fi
+    fi
+
+    # Same for scaffolder section
+    if ! grep -q "scaffolder:" app-config.yaml; then
+        cat <<EOF >> app-config.yaml
 
 scaffolder:
   # Actions that the scaffolder can use
@@ -439,12 +486,41 @@ scaffolder:
       type: url
       allowedHosts:
         - github.com
+        - raw.githubusercontent.com
     - id: publish:github
       type: url
       allowedHosts:
         - github.com
 EOF
+    else
+        log "INFO" "Scaffolder section already exists in app-config.yaml"
+    fi
     
+    # Check if the file exists first
+    if [[ -f "backstage/app-config.yaml" ]]; then
+      # Create a temporary file
+      touch backstage/app-config.yaml.tmp
+      
+      # Find the line number of the duplicate GitHub integration section
+      duplicate_line=$(grep -n "^# GitHub integration$" backstage/app-config.yaml | tail -1 | cut -d: -f1)
+      
+      if [[ -n "$duplicate_line" ]]; then
+        # Calculate section end (typically 4 lines)
+        end_line=$((duplicate_line + 4))
+        
+        # Write to temporary file without the duplicate section
+        awk "NR < $duplicate_line || NR > $end_line" backstage/app-config.yaml > backstage/app-config.yaml.tmp
+        
+        # Replace the original file
+        mv backstage/app-config.yaml.tmp backstage/app-config.yaml
+        
+        echo "Removed duplicate GitHub integration section from app-config.yaml"
+      else
+        echo "No duplicate GitHub integration section found"
+        rm backstage/app-config.yaml.tmp
+      fi
+    fi
+
     # Create template directories
     log "INFO" "Creating template directories..."
     mkdir -p ../templates/aks-clusters/skeleton
@@ -456,6 +532,12 @@ EOF
     # Create skeleton YAML
     log "INFO" "Creating skeleton template..."
     create_skeleton_yaml
+
+    # Push templates to GitHub
+    log "INFO" "Pushing templates to GitHub repository..."
+    push_templates_to_github || {
+        log "WARN" "Failed to push templates to GitHub automatically. You'll need to do this manually."
+    }
     
     # Install and build Backstage
     log "INFO" "Installing and building Backstage..."
@@ -533,6 +615,58 @@ remove_backstage() {
     }
     
     log "INFO" "Backstage removed successfully."
+    return 0
+}
+
+# Push templates to GitHub repository
+push_templates_to_github() {
+    log "INFO" "Pushing templates to GitHub repository..."
+    
+    # Create temp directory for git operations
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    
+    # Clone the repository
+    log "INFO" "Cloning repository ${GITHUB_ORG}/${GITHUB_REPO}..."
+    git clone "https://${GITHUB_TOKEN}@github.com/${GITHUB_ORG}/${GITHUB_REPO}.git" "${temp_dir}" || {
+        log "ERROR" "Failed to clone repository."
+        return 1
+    }
+    
+    # Create templates directory
+    mkdir -p "${temp_dir}/templates/aks-clusters/skeleton"
+    
+    # Copy the template files from local to the cloned repo
+    cp -f "../templates/aks-clusters/template.yaml" "${temp_dir}/templates/aks-clusters/"
+    cp -f "../templates/aks-clusters/skeleton/cluster.yaml" "${temp_dir}/templates/aks-clusters/skeleton/"
+    
+    # Commit and push changes
+    cd "${temp_dir}" || {
+        log "ERROR" "Failed to change directory to cloned repo."
+        return 1
+    }
+    
+    git config user.name "${GITHUB_USER}"
+    git config user.email "${GITHUB_USER}@users.noreply.github.com"
+    
+    git add templates/
+    git commit -m "Add AKS cluster templates for Backstage" || {
+        log "WARN" "No changes to commit or commit failed. Template might already exist."
+        cd - > /dev/null
+        rm -rf "${temp_dir}"
+        return 0
+    }
+    
+    git push || {
+        log "ERROR" "Failed to push templates to GitHub."
+        cd - > /dev/null
+        rm -rf "${temp_dir}"
+        return 1
+    }
+    
+    cd - > /dev/null
+    rm -rf "${temp_dir}"
+    log "INFO" "Templates pushed to GitHub successfully."
     return 0
 }
 
@@ -895,7 +1029,19 @@ main() {
     }
     
     # Verify prerequisites are installed
-    log "INFO" "Checking prerequisites..."
+    log "INFO" "
+    ╭──────────────────────────────────────────────────────╮
+    │                                                      │
+    │       █████╗ ███████╗██╗   ██╗██████╗ ███████╗       │
+    │      ██╔══██╗╚══███╔╝██║   ██║██╔══██╗██╔════╝       │
+    │      ███████║  ███╔╝ ██║   ██║██████╔╝█████╗         │
+    │      ██╔══██║ ███╔╝  ██║   ██║██╔══██╗██╔══╝         │
+    │      ██║  ██║███████╗╚██████╔╝██║  ██║███████╗       │
+    │      ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝       │
+    │                                                      │
+    │        Verify Prequisites are installed...           │
+    │                                                      │
+    ╰──────────────────────────────────────────────────────╯"
     verify_tool "az" "az --version" "2.50.0" || exit 1
     verify_tool "kubectl" "kubectl version --client" "1.25.0" || exit 1
     verify_tool "flux" "flux --version" "2.1.0" || exit 1
@@ -926,12 +1072,13 @@ main() {
     log "INFO" "
     ╭──────────────────────────────────────────────────────╮
     │                                                      │
-    │   ███╗   ███╗ ██████╗ ███╗   ███╗████████╗           │
-    │   ████╗ ████║██╔════╝ ████╗ ████║╚══██╔══╝           │
-    │   ██╔████╔██║██║  ███╗██╔████╔██║   ██║              │
-    │   ██║╚██╔╝██║██║   ██║██║╚██╔╝██║   ██║              │
-    │   ██║ ╚═╝ ██║╚██████╔╝██║ ╚═╝ ██║   ██║              │
-    │   ╚═╝     ╚═╝ ╚═════╝ ╚═╝     ╚═╝   ╚═╝              │
+    │     ██╗  ██╗ █████╗ ███████╗                         │
+    │     ██║ ██╔╝██╔══██╗██╔════╝                         │
+    │     █████╔╝ ╚█████╔╝███████╗                         │
+    │     ██╔═██╗ ██╔══██╗╚════██║                         │
+    │     ██║  ██╗╚█████╔╝███████║                         │
+    │     ╚═╝  ╚═╝ ╚════╝ ╚══════╝                         │
+    │                                                      │
     │           MANAGEMENT CLUSTER SETUP                   │
     │                                                      │
     ╰──────────────────────────────────────────────────────╯"
@@ -968,12 +1115,13 @@ main() {
     log "INFO" "
     ╭──────────────────────────────────────────────────────╮
     │                                                      │
-    │   ███████╗██████╗                                    │
-    │   ██╔════╝██╔══██╗                                   │
-    │   ███████╗██████╔╝                                   │
-    │   ╚════██║██╔═══╝                                    │
-    │   ███████║██║                                        │
-    │   ╚══════╝╚═╝                                        │
+    │       █████╗ ███████╗██╗   ██╗██████╗ ███████╗       │
+    │      ██╔══██╗╚══███╔╝██║   ██║██╔══██╗██╔════╝       │
+    │      ███████║  ███╔╝ ██║   ██║██████╔╝█████╗         │
+    │      ██╔══██║ ███╔╝  ██║   ██║██╔══██╗██╔══╝         │
+    │      ██║  ██║███████╗╚██████╔╝██║  ██║███████╗       │
+    │      ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝       │
+    │                                                      │
     │        SERVICE PRINCIPAL CREATION                    │
     │                                                      │
     ╰──────────────────────────────────────────────────────╯"
