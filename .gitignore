@@ -1,0 +1,75 @@
+# Logs
+*.log
+setup-backstage-capi-*.log
+
+# Environment variables and secrets
+.env
+*.env
+.env.local
+.env.*.local
+*.secret
+
+# Backstage build artifacts
+backstage/dist
+backstage/dist-types
+backstage/node_modules
+backstage/packages/*/dist
+backstage/packages/*/node_modules
+backstage/plugins/*/dist
+backstage/plugins/*/node_modules
+backstage/packages/app/coverage
+
+# Backstage configuration
+backstage/app-config.local.yaml
+backstage/app-config.production.yaml
+backstage/*-credentials.yaml
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Visual Studio Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Kubernetes
+kubeconfig
+.kubeconfig
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraformrc
+terraform.rc
+
+# Azure
+.azure/
+azure.yaml
+
+# Temporary files
+*.swp
+*.swo
+*~
+\#*\#
+.temp/
+.cache/
