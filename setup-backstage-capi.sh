@@ -19,10 +19,13 @@ MGMT_CLUSTER_NAME="mgmt-capi-cluster"
 K8S_VERSION="1.31.7"
 CNI_PLUGIN="cilium"
 
+# AAD Admin Group ID - if left empty, will use current user
+AAD_ADMIN_GROUP_ID=""
+
 # GitHub configuration
 GITHUB_ORG="jaredthivener"
 GITHUB_REPO="backstage-on-aks"
-GITHUB_TOKEN="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" # Replace this with a new GitHub personal access token that has the right permissions
+GITHUB_TOKEN="" # Replace this with a new GitHub personal access token that has the right permissions
 # For FluxCD, you need at least the following permissions:
 # - repo (full access)
 # - admin:repo_hook (read/write)
@@ -148,7 +151,7 @@ create_management_cluster() {
             --resource-group "${RESOURCE_GROUP_NAME}" \
             --name "${MGMT_CLUSTER_NAME}" \
             --node-count 3 \
-            --node-vm-size Standard_D4s_v5 \
+            --node-vm-size Standard_D2d_v4 \
             --ssh-access disabled \
             --enable-managed-identity \
             --enable-oidc-issuer \
@@ -156,7 +159,22 @@ create_management_cluster() {
             --network-dataplane cilium \
             --network-policy ${CNI_PLUGIN} \
             --zones 1 2 3 \
-            --kubernetes-version "${K8S_VERSION}" || {
+            --kubernetes-version "${K8S_VERSION}" \
+            --enable-addons monitoring \
+            --enable-aad \
+            --aad-admin-group-object-ids "${AAD_ADMIN_GROUP_ID:-$(az ad signed-in-user show --query id -o tsv)}" \
+            --enable-azure-rbac \
+            --enable-msi-auth-for-monitoring \
+            --auto-upgrade-channel stable \
+            --node-osdisk-size 75 \
+            --node-osdisk-type Ephemeral \
+            --max-pods 110 \
+            --enable-cluster-autoscaler \
+            --min-count 3 \
+            --max-count 5 \
+            --enable-defender \
+            --os-sku AzureLinux \
+            --tags environment=management purpose=clusterapi owner=jared || {
             log "ERROR" "Failed to create AKS cluster."
             return 1
         }
@@ -166,16 +184,30 @@ create_management_cluster() {
     fi
     
     log "INFO" "Getting credentials for AKS cluster..."
-    az aks get-credentials --resource-group "${RESOURCE_GROUP_NAME}" --name "${MGMT_CLUSTER_NAME}" --overwrite-existing || {
+    az aks get-credentials --resource-group "${RESOURCE_GROUP_NAME}" --name "${MGMT_CLUSTER_NAME}" --admin --overwrite-existing || {
         log "ERROR" "Failed to get AKS credentials."
         return 1
     }
-    
+
     # Verify cluster access
     log "INFO" "Verifying cluster access..."
     kubectl get nodes -o wide || {
-        log "ERROR" "Failed to access AKS cluster."
-        return 1
+        # If regular access fails, try with admin credentials
+        log "WARN" "Regular access failed, trying with admin credentials..."
+        az role assignment create \
+            --assignee "$(az ad signed-in-user show --query id -o tsv)" \
+            --role "Azure Kubernetes Service Cluster Admin Role" \
+            --scope "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.ContainerService/managedClusters/${MGMT_CLUSTER_NAME}" || {
+            log "ERROR" "Failed to assign admin role. Please ensure you have sufficient permissions."
+            return 1
+        }
+        
+        # Try again with admin credentials
+        az aks get-credentials --resource-group "${RESOURCE_GROUP_NAME}" --name "${MGMT_CLUSTER_NAME}" --admin --overwrite-existing
+        kubectl get nodes -o wide || {
+            log "ERROR" "Failed to access AKS cluster even with admin role."
+            return 1
+        }
     }
     
     return 0
@@ -472,8 +504,7 @@ configure_backstage_github_plugins() {
         log "INFO" "GitHub scaffolder plugin already configured."
     else
         # For macOS, the -i '' format is required for sed
-        sed -i '' '/backend.add(import('\''@backstage\/plugin-scaffolder-backend'\''));/a\\
-backend.add(import('\''@backstage/plugin-scaffolder-backend-module-github'\''));' "${BACKSTAGE_DIR}/packages/backend/src/index.ts" || {
+        sed -i '' -e '/backend.add(import('\''@backstage\/plugin-scaffolder-backend'\''));/a\'$'\n''backend.add(import('\''@backstage/plugin-scaffolder-backend-module-github'\''));' "${BACKSTAGE_DIR}/packages/backend/src/index.ts" || {
             log "ERROR" "Failed to add GitHub scaffolder plugin to index.ts."
             # Restore backup if modification failed
             mv "${BACKSTAGE_DIR}/packages/backend/src/index.ts.bak" "${BACKSTAGE_DIR}/packages/backend/src/index.ts"
@@ -485,38 +516,16 @@ backend.add(import('\''@backstage/plugin-scaffolder-backend-module-github'\''));
         log "INFO" "GitHub catalog plugin already configured."
     else
         # For macOS, the -i '' format is required for sed
-        sed -i '' '/backend.add(import('\''@backstage\/plugin-catalog-backend'\''));/a\\
-backend.add(import('\''@backstage/plugin-catalog-backend-module-github'\''));' "${BACKSTAGE_DIR}/packages/backend/src/index.ts" || {
+        sed -i '' -e '/backend.add(import('\''@backstage\/plugin-catalog-backend'\''));/a\'$'\n''backend.add(import('\''@backstage/plugin-catalog-backend-module-github'\''));' "${BACKSTAGE_DIR}/packages/backend/src/index.ts" || {
             log "ERROR" "Failed to add GitHub catalog plugin to index.ts."
             # Restore backup if modification failed
             mv "${BACKSTAGE_DIR}/packages/backend/src/index.ts.bak" "${BACKSTAGE_DIR}/packages/backend/src/index.ts"
             return 1
         }
     fi
-    
-    # Update app-config.local.yaml with GitHub integration settings
-    log "INFO" "Updating app-config.local.yaml with GitHub integration..."
-    cat > "${BACKSTAGE_DIR}/app-config.local.yaml" << EOF
-integrations:
-  github:
-    - host: github.com
-      token: \${GITHUB_TOKEN}
-
-catalog:
-  providers:
-    github:
-      ${GITHUB_ORG}:
-        organization: ${GITHUB_ORG}
-        catalogPath: '/catalog-info.yaml'
-        filters:
-          branch: main
-
-scaffolder:
-  github:
-    visibility: public
-    defaultOwner: ${GITHUB_ORG}
-    defaultWriter: ${GITHUB_ORG}
-EOF
+    log "INFO" "Backend configuration updated successfully."
+    log "INFO" "You can now add your GitHub actions to the Backstage catalog."
+    log "INFO" "Please ensure you have the correct permissions for the GitHub repository."
     
     # Restart Backstage to apply changes
     log "INFO" "Restarting Backstage to apply plugin changes..."
@@ -617,61 +626,61 @@ main() {
     log "INFO" "Starting setup process..."
     
     log "INFO" "
-    ╭──────────────────────────────────────────────────────╮
-    │                                                      │
-    │           ██╗  ██╗ █████╗ ███████╗                   │
-    │           ██║ ██╔╝██╔══██╗██╔════╝                   │
-    │           █████╔╝ ╚█████╔╝███████╗                   │
-    │           ██╔═██╗ ██╔══██╗╚════██║                   │
-    │           ██║  ██╗╚█████╔╝███████║                   │
-    │           ╚═╝  ╚═╝ ╚════╝ ╚══════╝                   │
-    │                                                      │
-    │              MANAGEMENT CLUSTER SETUP                │
-    │                                                      │
-    ╰──────────────────────────────────────────────────────╯"
+╭──────────────────────────────────────────────────────╮
+│                                                      │
+│             ██╗  ██╗ █████╗ ███████╗                 │
+│             ██║ ██╔╝██╔══██╗██╔════╝                 │
+│             █████╔╝ ╚█████╔╝███████╗                 │
+│             ██╔═██╗ ██╔══██╗╚════██║                 │
+│             ██║  ██╗╚█████╔╝███████║                 │
+│             ╚═╝  ╚═╝ ╚════╝ ╚══════╝                 │
+│                                                      │
+│              MANAGEMENT CLUSTER SETUP                │
+│                                                      │
+╰──────────────────────────────────────────────────────╯"
     create_management_cluster || exit 1
     
     log "INFO" "
-    ╭──────────────────────────────────────────────────────╮
-    │                                                      │
-    │       ██████╗ █████╗ ██████╗ ██╗                     │
-    │      ██╔════╝██╔══██╗██╔══██╗██║                     │
-    │      ██║     ███████║██████╔╝██║                     │
-    │      ██║     ██╔══██║██╔═══╝ ██║                     │
-    │      ╚██████╗██║  ██║██║     ██║                     │
-    │       ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝                     │
-    │         CLUSTER API INSTALLATION                     │
-    │                                                      │
-    ╰──────────────────────────────────────────────────────╯"
+╭──────────────────────────────────────────────────────╮
+│                                                      │
+│          ██████╗ █████╗ ██████╗ ██╗                  │
+│         ██╔════╝██╔══██╗██╔══██╗██║                  │
+│         ██║     ███████║██████╔╝██║                  │
+│         ██║     ██╔══██║██╔═══╝ ██║                  │
+│         ╚██████╗██║  ██║██║     ██║                  │
+│          ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝                  │
+│         CLUSTER API INSTALLATION                     │
+│                                                      │
+╰──────────────────────────────────────────────────────╯"
     install_cluster_api || exit 1
     
     log "INFO" "
-    ╭──────────────────────────────────────────────────────╮
-    │                                                      │
-    │      ███████╗██╗     ██╗   ██╗██╗  ██╗               │
-    │      ██╔════╝██║     ██║   ██║╚██╗██╔╝               │
-    │      █████╗  ██║     ██║   ██║ ╚███╔╝                │
-    │      ██╔══╝  ██║     ██║   ██║ ██╔██╗                │
-    │      ██║     ███████╗╚██████╔╝██╔╝ ██╗               │
-    │      ╚═╝     ╚══════╝ ╚═════╝ ╚═╝  ╚═╝               │
-    │            GITOPS SETUP WITH FLUX                    │
-    │                                                      │
-    ╰──────────────────────────────────────────────────────╯"
+╭──────────────────────────────────────────────────────╮
+│                                                      │
+│      ███████╗██╗     ██╗   ██╗██╗  ██╗               │
+│      ██╔════╝██║     ██║   ██║╚██╗██╔╝               │
+│      █████╗  ██║     ██║   ██║ ╚███╔╝                │
+│      ██╔══╝  ██║     ██║   ██║ ██╔██╗                │
+│      ██║     ███████╗╚██████╔╝██╔╝ ██╗               │
+│      ╚═╝     ╚══════╝ ╚═════╝ ╚═╝  ╚═╝               │
+│            GITOPS SETUP WITH FLUX                    │
+│                                                      │
+╰──────────────────────────────────────────────────────╯"
     setup_flux || exit 1
     
     log "INFO" "
-    ╭──────────────────────────────────────────────────────╮
-    │                                                      │
-    │       █████╗ ███████╗██╗   ██╗██████╗ ███████╗       │
-    │      ██╔══██╗╚══███╔╝██║   ██║██╔══██╗██╔════╝       │
-    │      ███████║  ███╔╝ ██║   ██║██████╔╝█████╗         │
-    │      ██╔══██║ ███╔╝  ██║   ██║██╔══██╗██╔══╝         │
-    │      ██║  ██║███████╗╚██████╔╝██║  ██║███████╗       │
-    │      ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝       │
-    │                                                      │
-    │        SERVICE PRINCIPAL CREATION                    │
-    │                                                      │
-    ╰──────────────────────────────────────────────────────╯"
+╭──────────────────────────────────────────────────────╮
+│                                                      │
+│       █████╗ ███████╗██╗   ██╗██████╗ ███████╗       │
+│      ██╔══██╗╚══███╔╝██║   ██║██╔══██╗██╔════╝       │
+│      ███████║  ███╔╝ ██║   ██║██████╔╝█████╗         │
+│      ██╔══██║ ███╔╝  ██║   ██║██╔══██╗██╔══╝         │
+│      ██║  ██║███████╗╚██████╔╝██║  ██║███████╗       │
+│      ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝       │
+│                                                      │
+│        SERVICE PRINCIPAL CREATION                    │
+│                                                      │
+╰──────────────────────────────────────────────────────╯"
     create_service_principal || exit 1
     
     log "INFO" "
@@ -697,37 +706,37 @@ main() {
     setup_backstage || exit 1
     
     log "INFO" "
-    ╭──────────────────────────────────────────────────────╮
-    │                                                      │
-    │    ██████╗ ██╗████████╗██╗  ██╗██╗   ██╗██████╗      │
-    │   ██╔════╝ ██║╚══██╔══╝██║  ██║██║   ██║██╔══██╗     │
-    │   ██║  ███╗██║   ██║   ███████║██║   ██║██████╔╝     │
-    │   ██║   ██║██║   ██║   ██╔══██║██║   ██║██╔══██╗     │
-    │   ╚██████╔╝██║   ██║   ██║  ██║╚██████╔╝██████╔╝     │
-    │    ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═════╝      │
-    │        PLUGIN CONFIGURATION FOR GITHUB               │
-    │                                                      │
-    ╰──────────────────────────────────────────────────────╯"
+╭──────────────────────────────────────────────────────╮
+│                                                      │
+│    ██████╗ ██╗████████╗██╗  ██╗██╗   ██╗██████╗      │
+│   ██╔════╝ ██║╚══██╔══╝██║  ██║██║   ██║██╔══██╗     │
+│   ██║  ███╗██║   ██║   ███████║██║   ██║██████╔╝     │
+│   ██║   ██║██║   ██║   ██╔══██║██║   ██║██╔══██╗     │
+│   ╚██████╔╝██║   ██║   ██║  ██║╚██████╔╝██████╔╝     │
+│    ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═════╝      │
+│        PLUGIN CONFIGURATION FOR GITHUB               │
+│                                                      │
+╰──────────────────────────────────────────────────────╯"
     configure_backstage_github_plugins || exit 1
     
     log "INFO" "
-    ╭────────────────────────────────────────────────────────────────────────╮
-    │                                                                        │
-    │   ██████╗ ██████╗ ███╗   ███╗██████╗ ██║     ███████╗████████╗███████╗ │
-    │  ██╔════╝██╔═══██╗████╗ ████║██╔══██╗██║     ██╔════╝╚══██╔══╝██╔════╝ │
-    │  ██║     ██║   ██║██╔████╔██║██████╔╝██║     █████╗     ██║   █████╗   │
-    │  ██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║     ██╔══╝     ██║   ██╔══╝   │
-    │  ╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ███████╗███████╗   ██║   ███████╗ │
-    │   ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚══════╝ │
-    │                                                                        │
-    │                                                                        │
-    │                                                                        │
-    │                  SETUP COMPLETED SUCCESSFULLY!                         │
-    │                                                                        │
-    │            Backstage has been automatically started                    │
-    │         and should be available at http://localhost:3000               │
-    │                                                                        │
-    ╰────────────────────────────────────────────────────────────────────────╯"
+╭────────────────────────────────────────────────────────────────────────╮
+│                                                                        │
+│   ██████╗ ██████╗ ███╗   ███╗██████╗ ██║     ███████╗████████╗███████╗ │
+│  ██╔════╝██╔═══██╗████╗ ████║██╔══██╗██║     ██╔════╝╚══██╔══╝██╔════╝ │
+│  ██║     ██║   ██║██╔████╔██║██████╔╝██║     █████╗     ██║   █████╗   │
+│  ██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║     ██╔══╝     ██║   ██╔══╝   │
+│  ╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ███████╗███████╗   ██║   ███████╗ │
+│   ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚══════╝ │
+│                                                                        │
+│                                                                        │
+│                                                                        │
+│                  SETUP COMPLETED SUCCESSFULLY!                         │
+│                                                                        │
+│            Backstage has been automatically started                    │
+│         and should be available at http://localhost:3000               │
+│                                                                        │
+╰────────────────────────────────────────────────────────────────────────╯"
 }
 
 # Execute main function

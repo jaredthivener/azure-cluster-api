@@ -56,6 +56,34 @@ spec:
   networkPlugin: azure
   networkPluginMode: "Overlay"
   disableLocalAccounts: true
+  # Enhanced security settings
+  aadProfile:
+    managed: true
+    adminGroupObjectIDs: ["${AAD_ADMIN_GROUP_ID}"]
+    enableAzureRBAC: true
+  apiServerAccessProfile:
+    enablePrivateCluster: false  # Set to true for private cluster
+    authorizedIPRanges: ["0.0.0.0/0"]  # Restrict this in production
+  # OIDC issuer profile for workload identity
+  oidcIssuerProfile:
+    enabled: true
+  # Security profile configuration
+  securityProfile:
+    workloadIdentity:
+      enabled: true
+    imageCleaner:
+      enabled: true
+      intervalHours: 48
+  # Enhanced network profile settings
+  networkProfile:
+    outboundType: loadBalancer
+    loadBalancerSku: standard
+    dockerBridgeCidr: 172.17.0.1/16
+  # Maintenance settings
+  autoUpgradeProfile:
+    upgradeChannel: stable
+    nodeOSUpgradeChannel: SecurityPatch
+  # Add-on profiles
   addonProfiles:
   - name: azurepolicy
     enabled: true
@@ -64,6 +92,10 @@ spec:
   - name: azureKeyvaultSecretsProvider
     enabled: true
   - name: cilium
+    enabled: true
+  - name: azureDiskCSIDriver
+    enabled: true
+  - name: azureFileCSIDriver
     enabled: true
   identityRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -91,6 +123,9 @@ spec:
     kind: AzureClusterIdentity
     name: cluster-identity
   location: {{ region }}
+    networkSpec:
+    apiServerLB:
+      type: Internal
   resourceGroupName: rg-{{ businessUnit }}-aks-{{ environment }}-{{ region }}-001
   tags:
     environment: {{ environment }}
@@ -125,16 +160,32 @@ metadata:
 spec:
   mode: System
   osDiskSizeGB: 128
-  osDiskType: Managed
+  osDiskType: Ephemeral  # Changed from Managed to Ephemeral
   vmSize: {{ skuType }}
   sku: AzureLinux
   enableAutoScaling: true
   minCount: {{ nodeCount }}
   maxCount: {{ nodeCount | twice }}
-  maxPods: 30
+  maxPods: 110  # CIS compliance framework recommends a maximum of 110 pods per node
+  # High availability configuration
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"
+  # System node pool taints to prevent application workloads
+  taints:
+    - effect: NoSchedule
+      key: CriticalAddonsOnly
+      value: "true"
   nodeLabels:
     nodepool: system
     nodetype: system
+  # OS configuration
+  enableNodePublicIP: false
+  upgradeSettings:
+    maxSurge: "33%"
+  # Ephemeral disk configuration
+  osDiskCachingType: ReadOnly
 ---
 # Worker Node Pool
 apiVersion: cluster.x-k8s.io/v1beta1
@@ -163,13 +214,24 @@ metadata:
 spec:
   mode: User
   osDiskSizeGB: 128 
-  osDiskType: Managed
+  osDiskType: Ephemeral  # Changed from Managed to Ephemeral
   vmSize: {{ skuType }}
   sku: AzureLinux
   enableAutoScaling: true
   minCount: {{ nodeCount }}
   maxCount: {{ nodeCount | twice }}
-  maxPods: 30
+  maxPods: 110  # CIS compliance framework recommends a maximum of 110 pods per node
+  # High availability configuration
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"
+  # Node configuration
+  enableNodePublicIP: false
+  upgradeSettings:
+    maxSurge: "33%"
   nodeLabels:
     nodepool: workload
     nodetype: application
+  # Ephemeral disk configuration
+  osDiskCachingType: ReadOnly
