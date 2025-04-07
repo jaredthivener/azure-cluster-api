@@ -261,15 +261,14 @@ cleanup_service_principals() {
     local sp_data
     sp_data=$(az ad app list --filter "startswith(displayName,'ClusterAPI')" --query "[].{DisplayName:displayName, AppId:appId}" -o json)
     
-    if [[ $(echo "$sp_data" | jq length) -eq 0 ]]; then
-        log "INFO" "No ClusterAPI service principals found. Checking service principals..."
+    # Check if we found any service principals
+    if [[ -z "$sp_data" || $(echo "$sp_data" | jq length) -eq 0 ]]; then
+        log "INFO" "No ClusterAPI service principals found. Skipping service principal cleanup."
         return 0
     fi
     
     log "INFO" "Found the following service principals that may be related to ClusterAPI:"
-    echo "$sp_data" | jq -r '.[] | "- \(.DisplayName) (AppID: \(.AppId))"' | while read -r line; do
-        log "INFO" "$line"
-    done
+    echo "$sp_data" | jq -r '.[] | "- \(.DisplayName) (AppID: \(.AppId))"'
     
     # Confirm deletion
     if ! confirm_action "Do you want to delete these service principals?" "Y"; then
@@ -277,42 +276,54 @@ cleanup_service_principals() {
         return 0
     fi
     
-    # Get the app IDs and delete them
-    local app_ids
-    app_ids=$(echo "$sp_data" | jq -r '.[].AppId')
+    # Store app IDs in an array to avoid subshell issues
+    readarray -t app_ids < <(echo "$sp_data" | jq -r '.[].AppId')
     
-    for app_id in $app_ids; do
-        local display_name
+    for app_id in "${app_ids[@]}"; do
         display_name=$(echo "$sp_data" | jq -r ".[] | select(.AppId == \"$app_id\") | .DisplayName")
-        
         log "INFO" "Deleting service principal ${display_name} (AppID: ${app_id})..."
         
-        # First try to delete the service principal
-        if az ad sp delete --id "$app_id"; then
+        # First try to delete the enterprise app (service principal)
+        log "DEBUG" "Attempting to delete service principal..."
+        if az ad sp delete --id "$app_id" 2>/dev/null; then
             log "INFO" "Service principal deleted successfully."
         else
             log "WARN" "Failed to delete service principal directly. Trying to delete the app registration..."
             
             # If SP deletion fails, try deleting the app registration
-            if az ad app delete --id "$app_id"; then
+            if az ad app delete --id "$app_id" 2>/dev/null; then
                 log "INFO" "App registration deleted successfully."
             else
-                log "ERROR" "Failed to delete service principal. You may need to delete it manually from the Azure portal."
-                log "ERROR" "   - App ID: $app_id"
-                log "ERROR" "   - Display Name: $display_name"
+                # Try with the newer Azure CLI syntax which might use object ID instead
+                log "WARN" "Standard deletion failed. Trying alternative approach..."
+                
+                # Get the object ID of the app
+                object_id=$(az ad app show --id "$app_id" --query id -o tsv 2>/dev/null)
+                if [[ -n "$object_id" ]]; then
+                    if az ad app delete --id "$object_id" 2>/dev/null; then
+                        log "INFO" "App registration deleted successfully using object ID."
+                    else
+                        log "ERROR" "Failed to delete service principal. You may need to delete it manually."
+                        log "ERROR" "   - App ID: $app_id"
+                        log "ERROR" "   - Display Name: $display_name"
+                    fi
+                else
+                    log "ERROR" "Failed to get object ID for app $app_id. Manual cleanup required."
+                fi
             fi
         fi
     done
     
     # Verify deletion
+    log "INFO" "Verifying service principal deletion..."
+    sleep 5 # Give Azure some time to process the deletions
+    
     sp_data=$(az ad app list --filter "startswith(displayName,'ClusterAPI')" --query "[].{DisplayName:displayName, AppId:appId}" -o json)
     if [[ $(echo "$sp_data" | jq length) -gt 0 ]]; then
         log "WARN" "Some ClusterAPI service principals still exist and could not be deleted automatically:"
-        echo "$sp_data" | jq -r '.[] | "- \(.DisplayName) (AppID: \(.AppId))"' | while read -r line; do
-            log "WARN" "$line"
-        done
-        log "WARN" "Please delete these manually from the Azure portal or with the command:"
-        log "WARN" "az ad app delete --id <APP_ID>"
+        echo "$sp_data" | jq -r '.[] | "- \(.DisplayName) (AppID: \(.AppId))"'
+        log "WARN" "Please delete these manually from the Azure portal with these commands:"
+        echo "$sp_data" | jq -r '.[] | "az ad app delete --id \(.AppId)"'
     else
         log "INFO" "All ClusterAPI service principals have been successfully deleted."
     fi
