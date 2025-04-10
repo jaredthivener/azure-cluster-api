@@ -1,1 +1,11 @@
-
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.clusterName }}
+  description: AKS Cluster ${{ values.clusterName }}
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: infrastructure
+  lifecycle: experimental
+  owner: platform-team
