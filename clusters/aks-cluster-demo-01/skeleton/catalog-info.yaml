@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1beta3
+kind: Component
+metadata:
+  name: aks-cluster-demo-01
+  description: AKS Cluster aks-cluster-demo-01
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: infrastructure
+  lifecycle: experimental
+  owner: platform-team

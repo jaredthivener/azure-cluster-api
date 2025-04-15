@@ -1,0 +1,140 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: aks-cluster-template
+  title: Azure Kubernetes Service Cluster
+  description: Create a new AKS cluster using Cluster API
+  tags:
+    - kubernetes
+    - azure
+    - aks
+    - cluster-api
+spec:
+  owner: platform-team
+  type: infrastructure
+  parameters:
+    - title: Basic Cluster Configuration
+      required:
+        - clusterName
+        - region
+        - businessUnit
+        - environment
+        - owner
+      properties:
+        clusterName:
+          title: Cluster Name
+          type: string
+          description: Name of your AKS cluster
+          ui:autofocus: true
+        environment:
+          title: Environment
+          type: string
+          description: Target environment (dev, staging, prod)
+          enum: ['development', 'staging', 'production']
+        businessUnit:
+          title: Business Unit
+          type: string
+          description: Which business unit owns this cluster
+        owner:
+          title: Owner Email
+          type: string
+          description: Email of the responsible team/individual
+          
+    - title: Azure Configuration
+      required:
+        - subscriptionId
+        - region
+      properties:
+        subscriptionId:
+          title: Azure Subscription ID
+          type: string
+          description: Azure subscription to deploy the cluster in
+          default: "f645938d-2368-4a99-b589-ea72e5544719"
+        region:
+          title: Azure Region
+          type: string
+          description: Region to deploy the cluster
+          enum: ['eastus', 'westus2', 'centralus', 'northeurope', 'westeurope']
+          default: "eastus"
+          
+    - title: Cluster Configuration
+      required:
+        - kubernetesVersion
+        - nodeCount
+        - skuType
+      properties:
+        kubernetesVersion:
+          title: Kubernetes Version
+          type: string
+          description: Kubernetes version to deploy
+          default: "v1.31.7"
+          enum: ['v1.30.4', 'v1.31.3', 'v1.31.7']
+        nodeCount:
+          title: Initial Node Count
+          type: integer
+          description: Number of worker nodes
+          default: 3
+          minimum: 1
+          maximum: 10
+        skuType:
+          title: VM Size
+          type: string
+          description: Azure VM size for nodes
+          default: "Standard_D4s_v5"
+          enum: ['Standard_D2s_v5', 'Standard_D4s_v5', 'Standard_D8s_v5', 'Standard_D16s_v5']
+        
+    - title: Networking Configuration
+      required:
+        - vnetCidr
+      properties:
+        vnetCidr:
+          title: VNet CIDR
+          type: string
+          description: CIDR block for the virtual network
+          default: "10.0.0.0/16"
+        nodeCidr:
+          title: Node Subnet CIDR
+          type: string
+          description: CIDR block for the node subnet
+          default: "10.0.0.0/22"
+
+  steps:
+    - id: generate-cluster-manifests
+      name: Generate Cluster API manifests
+      action: fetch:template
+      input:
+        url: ./skeleton
+        targetPath: ./generated
+        values:
+          clusterName: 
+          environment: 
+          businessUnit: 
+          owner: 
+          subscriptionId: 
+          region: 
+          kubernetesVersion: 
+          nodeCount: 
+          skuType: 
+          vnetCidr: 
+          nodeCidr: 
+          
+    - id: publish-to-github
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=jaredthivener&repo=backstage-on-aks
+        title: Add AKS cluster 
+        description: |
+          This PR adds a new AKS cluster with the following configuration:
+          - Name: 
+          - Environment: 
+          - Region: 
+          - Node type: 
+          - Node count: 
+        targetPath: clusters/
+        branch: add-cluster-
+
+  output:
+    links:
+      - title: GitHub Pull Request
+        url: NaN
