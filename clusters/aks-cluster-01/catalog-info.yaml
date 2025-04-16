@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aks-cluster-01-k8s-cluster
+  description: Azure Kubernetes Cluster managed by Cluster API and Flux CD
+  tags:
+    - kubernetes
+    - cluster-api
+    - azure
+    - infrastructure
+spec:
+  type: infrastructure
+  owner: user:guest
+  lifecycle: production
