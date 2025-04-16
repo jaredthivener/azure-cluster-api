@@ -1,140 +1,195 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: aks-cluster-template
-  title: Azure Kubernetes Service Cluster
-  description: Create a new AKS cluster using Cluster API
-  tags:
-    - kubernetes
-    - azure
-    - aks
-    - cluster-api
+  name: azure-kubernetes-cluster-template
+  title: Create an Azure Kubernetes Cluster
+  description: Deploy a Kubernetes cluster to Azure.
 spec:
-  owner: platform-team
+  owner: group:platform-team
   type: infrastructure
+
   parameters:
-    - title: Basic Cluster Configuration
+    - title: Azure Configuration
       required:
+        - subscriptionId
+        - vnetName
+        - apiSubnet
+        - nodeSubnet
         - clusterName
-        - region
-        - businessUnit
-        - environment
-        - owner
+        - kubernetesVersion
+        - nodeSku
+        - nodeCount
       properties:
         clusterName:
           title: Cluster Name
           type: string
-          description: Name of your AKS cluster
-          ui:autofocus: true
-        environment:
-          title: Environment
-          type: string
-          description: Target environment (dev, staging, prod)
-          enum: ['development', 'staging', 'production']
-        businessUnit:
-          title: Business Unit
-          type: string
-          description: Which business unit owns this cluster
-        owner:
-          title: Owner Email
-          type: string
-          description: Email of the responsible team/individual
-          
-    - title: Azure Configuration
-      required:
-        - subscriptionId
-        - region
-      properties:
+          description: Name of the Kubernetes cluster
+          pattern: '^[a-z0-9]([a-z0-9\-_.]*[a-z0-9])?$'
+          minLength: 1
+          maxLength: 63
+
         subscriptionId:
           title: Azure Subscription ID
           type: string
-          description: Azure subscription to deploy the cluster in
-          default: "f645938d-2368-4a99-b589-ea72e5544719"
+          description: Azure subscription ID for the cluster
+          ui:autofocus: true
+          enum:
+            - AzureSandbox
+            - AzureProduction
+          default: AzureSandbox
+
         region:
           title: Azure Region
           type: string
-          description: Region to deploy the cluster
-          enum: ['eastus', 'westus2', 'centralus', 'northeurope', 'westeurope']
-          default: "eastus"
-          
-    - title: Cluster Configuration
-      required:
-        - kubernetesVersion
-        - nodeCount
-        - skuType
-      properties:
+          description: Region to deploy the cluster in
+          enum:
+            - eastus
+            - eastus2
+            - centralus
+          default: eastus
+
+        vnetName:
+          title: Virtual Network Name
+          type: string
+          description: Virtual network name
+          enum:
+            - vnet-demo-1
+            - vnet-demo-2 
+
+        apiSubnet:
+          title: API Subnet
+          type: string
+          description: Subnet to use for api server.
+          enum:
+            - api-subnet-01
+            - api-subnet-02
+
+        nodeSubnet:
+          title: Worker Node Subnet
+          type: string
+          description: Subnet to use for worker nodes
+          enum:
+            - node-subnet-01
+            - node-subnet-02
+
         kubernetesVersion:
           title: Kubernetes Version
           type: string
-          description: Kubernetes version to deploy
-          default: "v1.31.7"
-          enum: ['v1.30.4', 'v1.31.3', 'v1.31.7']
+          enum:
+            - 1.32.3
+            - 1.31.7
+            - 1.30.11
+          default: 1.30.11
+
+        nodeSku:
+          title: Node SKU Type
+          type: string
+          description: Azure VM size for the nodes
+          ui:options:
+            enumNames:
+              - Standard_D2s_v3 (2 vCPUs, 8 GiB memory)
+              - Standard_D4s_v3 (4 vCPUs, 16 GiB memory)
+              - Standard_D8s_v3 (8 vCPUs, 32 GiB memory)
+              - Standard_D16s_v3 (16 vCPUs, 64 GiB memory)
+          enum:
+            - Standard_D2s_v3
+            - Standard_D4s_v3
+            - Standard_D8s_v3
+            - Standard_D16s_v3
+          default: Standard_D2s_v3
+
         nodeCount:
-          title: Initial Node Count
+          title: Node Count
           type: integer
           description: Number of worker nodes
           default: 3
           minimum: 1
-          maximum: 10
-        skuType:
-          title: VM Size
-          type: string
-          description: Azure VM size for nodes
-          default: "Standard_D4s_v5"
-          enum: ['Standard_D2s_v5', 'Standard_D4s_v5', 'Standard_D8s_v5', 'Standard_D16s_v5']
-        
-    - title: Networking Configuration
+          maximum: 100
+
+    - title: Git Repository
       required:
-        - vnetCidr
+        - repoUrl
+        - branch
       properties:
-        vnetCidr:
-          title: VNet CIDR
+        repoUrl:
+          title: Repository URL
           type: string
-          description: CIDR block for the virtual network
-          default: "10.0.0.0/16"
-        nodeCidr:
-          title: Node Subnet CIDR
+          default: github.com?repo=backstage-on-aks&owner=jaredthivener
+          description: Git repository for Flux CD to monitor
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+        branch:
+          title: Git Branch
           type: string
-          description: CIDR block for the node subnet
-          default: "10.0.0.0/22"
+          default: main
+          description: Branch to commit to in the repository
 
   steps:
-    - id: generate-cluster-manifests
-      name: Generate Cluster API manifests
+    - id: fetch-template
+      name: Render Cluster YAML
       action: fetch:template
       input:
-        url: ./skeleton
-        targetPath: ./generated
+        url: ./cluster-api-templates
         values:
-          clusterName: ${{ parameters.clusterName }}
-          environment: ${{ parameters.environment }}
-          businessUnit: ${{ parameters.businessUnit }}
-          owner: ${{ parameters.owner }}
-          subscriptionId: ${{ parameters.subscriptionId }}
-          region: ${{ parameters.region }}
-          kubernetesVersion: ${{ parameters.kubernetesVersion }}
-          nodeCount: ${{ parameters.nodeCount }}
-          skuType: ${{ parameters.skuType }}
-          vnetCidr: ${{ parameters.vnetCidr }}
-          nodeCidr: ${{ parameters.nodeCidr }}
-          
-    - id: publish-to-github
-      name: Publish to GitHub
-      action: publish:github
+          clusterName:        ${{ parameters.clusterName }}
+          region:             ${{ parameters.region }}
+          kubernetesVersion:  ${{ parameters.kubernetesVersion }}
+          subscriptionId:     ${{ parameters.subscriptionId }}
+          vnetName:           ${{ parameters.vnetName }}
+          controlPlaneSubnet: ${{ parameters.apiSubnet }}
+          nodeSubnet:         ${{ parameters.nodeSubnet }}
+          nodeSku:            ${{ parameters.nodeSku }}
+          nodeCount:          ${{ parameters.nodeCount }}
+          resourceGroup:      ${{ parameters.clusterName }}
+        targetPath: ./content   # ← use targetPath, not outputPath
+
+    - id: debug-list-content
+      name: List content directory
+      action: debug:log
       input:
-        repoUrl: github.com?owner=jaredthivener&repo=backstage-on-aks
-        title: Add AKS cluster ${{ parameters.clusterName }}
-        description: |
-          This PR adds a new AKS cluster with the following configuration:
-          - Name: ${{ parameters.clusterName }}
-          - Environment: ${{ parameters.environment }}
-          - Region: ${{ parameters.region }}
-          - Node type: ${{ parameters.skuType }}
-          - Node count: ${{ parameters.nodeCount }}
-        targetPath: clusters/${{ parameters.clusterName }}
-        branch: add-cluster-${{ parameters.clusterName }}
+        listWorkspace: true
+
+    # - id: debug-print-files
+    #   name: Print File Contents
+    #   action: debug:log
+    #   input:
+    #     message: |
+    #       FILE CONTENTS:
+    #       ${{ fs.readdir('./content') }}
+
+    # - id: debug-file-content
+    #   name: Debug File Content
+    #   action: debug:log
+    #   input:
+    #     message: |
+    #       Content of catalog-info.yaml:
+    #       ${{ fs.readFile('./content/catalog-info.yaml') }}
+
+    #       Content of cluster.yaml:
+    #       ${{ fs.readFile('./content/cluster.yaml') }}
+
+    # - id: register-component
+    #   name: Register Component in Backstage
+    #   action: catalog:register
+    #   input:
+    #     catalogInfoUrl: ./content/catalog-info.yaml
+
+    - id: publish-cluster
+      name: Publish Cluster YAML
+      action: publish:github:pull-request
+      input:
+        repoUrl:     ${{ parameters.repoUrl }}
+        branchName:  cluster-api/${{ parameters.clusterName }}
+        title:       "Add Cluster YAML for ${{ parameters.clusterName }}"
+        description: "Automated PR from Backstage template"
+        sourcePath:  ./content
+        targetPath:  clusters/${{ parameters.clusterName }}
+        update:      true
 
   output:
     links:
-      - title: GitHub Pull Request
-        url: ${{ steps.publish-to-github.output.remoteUrl }}
+      - title: Repository
+        url: ${{ steps['publish-cluster'].output.remoteUrl }}
