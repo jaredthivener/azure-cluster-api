@@ -34,9 +34,12 @@ spec:
   resourceGroupName: aks-demo-01
   location: eastus
   subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
-  version: 1.31.7
+  version: 1.32.3
   networkPolicy: azure
   networkPlugin: azure
+  identityRef:
+  kind: AzureClusterIdentity
+  name: cluster-identity
   enablePreviewFeatures: true
   oidcIssuerProfile:
     enabled: true
@@ -80,7 +83,7 @@ spec:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureMachineTemplate
         name: aks-demo-01-md-0
-      version: 1.31.7
+      version: 1.32.3
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureMachineTemplate
