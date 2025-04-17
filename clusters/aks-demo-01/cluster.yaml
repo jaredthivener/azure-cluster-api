@@ -24,8 +24,6 @@ kind: AzureManagedCluster
 metadata:
   name: aks-demo-01
   namespace: default
-spec:
-  resourceGroupName: rg-aks-demo-01
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedControlPlane
@@ -33,7 +31,6 @@ metadata:
   name: aks-demo-01-control-plane
   namespace: default
 spec:
-  resourceGroupName: aks-demo-01
   location: eastus
   subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
   version: 1.32.3
@@ -66,7 +63,7 @@ metadata:
   namespace: default
 spec:
   clusterName: aks-demo-01
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       cluster.x-k8s.io/cluster-name: aks-demo-01
@@ -92,7 +89,7 @@ spec:
     spec:
       vmSize: Standard_D2s_v3
       osDisk:
-        diskSizeGB: 128
+        diskSizeGB: 64
         osType: Linux
         managedDisk:
           storageAccountType: Premium_LRS
