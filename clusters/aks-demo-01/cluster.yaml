@@ -29,7 +29,7 @@ spec:
   location: eastus
   networkPolicy: azure
   networkPlugin: azure
-  subscriptionID: AzureSandbox
+  subscriptionId: AzureSandbox  # Changed from subscriptionID
   # virtualNetwork:
   #   name: 
   #   resourceGroup: aks-demo-01
@@ -42,7 +42,7 @@ metadata:
 spec:
   resourceGroupName: aks-demo-01
   location: eastus
-  subscriptionID: AzureSandbox
+  subscriptionId: AzureSandbox  # Changed from subscriptionID
   version: 1.31.7
   networkPolicy: azure
   networkPlugin: azure
@@ -109,7 +109,7 @@ spec:
         osType: Linux
         managedDisk:
           storageAccountType: Premium_LRS
-      subscriptionID: AzureSandbox
+      subscriptionId: AzureSandbox  # Changed from subscriptionID to subscriptionId
       location: eastus
       subnetName: 
 ---
