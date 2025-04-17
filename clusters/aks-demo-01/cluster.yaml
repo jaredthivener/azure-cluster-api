@@ -50,7 +50,7 @@ spec:
   #   name: 
   #   resourceGroup: aks-demo-01
   #   subnetName: 
-    enablePreviewFeatures: true
+  enablePreviewFeatures: true  # Fixed indentation - this should not be inside virtualNetwork
   oidcIssuerProfile:
     enabled: true
   securityProfile:
