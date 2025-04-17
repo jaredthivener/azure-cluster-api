@@ -24,12 +24,6 @@ kind: AzureManagedCluster
 metadata:
   name: aks-demo-01
   namespace: default
-spec:
-  resourceGroupName: rg-aks-demo-01
-  location: eastus
-  # virtualNetwork:
-  #   name: 
-  #   resourceGroup: aks-demo-01
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedControlPlane
@@ -40,7 +34,7 @@ spec:
   resourceGroupName: aks-demo-01
   location: eastus
   subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
-  version: 1.30.11
+  version: 1.31.7
   networkPolicy: azure
   networkPlugin: azure
   enablePreviewFeatures: true
@@ -86,7 +80,7 @@ spec:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureMachineTemplate
         name: aks-demo-01-md-0
-      version: 1.30.11
+      version: 1.31.7
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureMachineTemplate
