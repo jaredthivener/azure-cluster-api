@@ -24,6 +24,8 @@ kind: AzureManagedCluster
 metadata:
   name: aks-demo-01
   namespace: default
+spec:
+  resourceGroupName: rg-aks-demo-01
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedControlPlane
@@ -38,8 +40,8 @@ spec:
   networkPolicy: azure
   networkPlugin: azure
   identityRef:
-  kind: AzureClusterIdentity
-  name: cluster-identity
+    kind: AzureClusterIdentity
+    name: cluster-identity
   enablePreviewFeatures: true
   oidcIssuerProfile:
     enabled: true
@@ -50,7 +52,7 @@ spec:
       enabled: true
       intervalHours: 24
   sku:
-    tier: Free # or Standard
+    tier: Free
   addonProfiles:
   - name: azureKeyvaultSecretsProvider
     enabled: true
@@ -73,11 +75,6 @@ spec:
       labels:
         cluster.x-k8s.io/cluster-name: aks-demo-01
     spec:
-      bootstrap:
-        configRef:
-          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-          kind: KubeadmConfigTemplate
-          name: aks-demo-01-md-0
       clusterName: aks-demo-01
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -101,16 +98,3 @@ spec:
           storageAccountType: Premium_LRS
       # network:
       #   subnetName: 
----
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-kind: KubeadmConfigTemplate
-metadata:
-  name: aks-demo-01-md-0
-  namespace: default
-spec:
-  template:
-    spec:
-      joinConfiguration:
-        nodeRegistration:
-          kubeletExtraArgs:
-            cloud-provider: azure
