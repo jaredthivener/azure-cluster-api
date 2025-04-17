@@ -109,9 +109,8 @@ spec:
         osType: Linux
         managedDisk:
           storageAccountType: Premium_LRS
-      subscriptionId: AzureSandbox  # Changed from subscriptionID to subscriptionId
-      location: eastus
-      subnetName: 
+      # network:
+      #   subnetName: 
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
