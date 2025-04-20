@@ -54,10 +54,10 @@ spec:
   sku:
     tier: Free
   addonProfiles:
-    azureKeyvaultSecretsProvider:
-      enabled: true
-    azurepolicy:
-      enabled: true
+  - name: azureKeyvaultSecretsProvider
+    enabled: true
+  - name: azurepolicy
+    enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
