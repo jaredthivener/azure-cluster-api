@@ -1,7 +1,7 @@
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
-  name: ${{ values.clusterName }}-k8s-cluster
+  name: ${{ values.clusterName }}
   namespace: default
 spec:
   clusterNetwork:
@@ -11,7 +11,7 @@ spec:
       cidrBlocks: ["10.128.0.0/12"]
     serviceDomain: "cluster.local"
   controlPlaneRef:
-    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AzureManagedControlPlane
     name: ${{ values.clusterName }}-control-plane
   infrastructureRef:
@@ -24,88 +24,64 @@ kind: AzureManagedCluster
 metadata:
   name: ${{ values.clusterName }}
   namespace: default
-spec:
-  resourceGroupName: rg-${{ values.clusterName }}
-  location: ${{ values.region }}
-  networkPolicy: azure
-  networkPlugin: azure
-  subscriptionID: ${{ values.subscriptionId }}
-  virtualNetwork:
-    name: ${{ values.vnetName }}
-    resourceGroup: ${{ values.resourceGroup }}
 ---
-apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedControlPlane
 metadata:
   name: ${{ values.clusterName }}-control-plane
   namespace: default
 spec:
-  resourceGroupName: ${{ values.resourceGroup }}
+  resourceGroupName: rg-${{ values.clusterName }}
   location: ${{ values.region }}
   subscriptionID: ${{ values.subscriptionId }}
   version: ${{ values.kubernetesVersion }}
-  networkPolicy: azure
-  networkPlugin: azure
-  virtualNetwork:
-    name: ${{ values.vnetName }}
-    resourceGroup: ${{ values.resourceGroup }}
-    subnetName: ${{ values.controlPlaneSubnet }}
+  networkPolicy: azure # or calico/cilium
+  networkPlugin: azure # or kubenet
+  networkDataplane: cilium
+  loadBalancerSKU: Standard
+  identityRef:
+    kind: AzureClusterIdentity
+    name: cluster-identity
+  enablePreviewFeatures: true
+  oidcIssuerProfile:
+    enabled: true
+  securityProfile:
+    workloadIdentity:
+      enabled: true
+    imageCleaner:
+      enabled: true
+      intervalHours: 24
+  sku:
+    tier: Free
+  addonProfiles:
+    azureKeyvaultSecretsProvider:
+      enabled: true
+    azurepolicy:
+      enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
-kind: MachineDeployment
+kind: MachinePool
 metadata:
-  name: ${{ values.clusterName }}-md-0
-  namespace: default
+  name: system
 spec:
   clusterName: ${{ values.clusterName }}
   replicas: ${{ values.nodeCount }}
-  selector:
-    matchLabels:
-      cluster.x-k8s.io/cluster-name: ${{ values.clusterName }}
   template:
-    metadata:
-      labels:
-        cluster.x-k8s.io/cluster-name: ${{ values.clusterName }}
     spec:
-      bootstrap:
-        configRef:
-          apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-          kind: KubeadmConfigTemplate
-          name: ${{ values.clusterName }}-md-0
       clusterName: ${{ values.clusterName }}
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-        kind: AzureMachineTemplate
-        name: ${{ values.clusterName }}-md-0
+        kind: AzureManagedMachinePool
+        name: system
+        namespace: default
       version: ${{ values.kubernetesVersion }}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureMachineTemplate
+kind: AzureManagedMachinePool
 metadata:
-  name: ${{ values.clusterName }}-md-0
-  namespace: default
+  name: system
 spec:
-  template:
-    spec:
-      vmSize: ${{ values.nodeSku }}
-      osDisk:
-        diskSizeGB: 128
-        osType: Linux
-        managedDisk:
-          storageAccountType: Premium_LRS
-      subscriptionID: ${{ values.subscriptionId }}
-      location: ${{ values.region }}
-      subnetName: ${{ values.nodeSubnet }}
----
-apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-kind: KubeadmConfigTemplate
-metadata:
-  name: ${{ values.clusterName }}-md-0
-  namespace: default
-spec:
-  template:
-    spec:
-      joinConfiguration:
-        nodeRegistration:
-          kubeletExtraArgs:
-            cloud-provider: azure
+  mode: System
+  osDiskSizeGB: 30
+  sku: ${{ values.nodeSku }}
+  availabilityZones: ["1", "2", "3"]

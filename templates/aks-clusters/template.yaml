@@ -12,9 +12,9 @@ spec:
     - title: Azure Configuration
       required:
         - subscriptionId
-        - vnetName
-        - apiSubnet
-        - nodeSubnet
+        # - vnetName
+        # - apiSubnet
+        # - nodeSubnet
         - clusterName
         - kubernetesVersion
         - nodeSku
@@ -34,9 +34,9 @@ spec:
           description: Azure subscription ID for the cluster
           ui:autofocus: true
           enum:
-            - AzureSandbox
+            - f645938d-2368-4a99-b589-ea72e5544719
             - AzureProduction
-          default: AzureSandbox
+          default: f645938d-2368-4a99-b589-ea72e5544719
 
         region:
           title: Azure Region
@@ -48,29 +48,29 @@ spec:
             - centralus
           default: eastus
 
-        vnetName:
-          title: Virtual Network Name
-          type: string
-          description: Virtual network name
-          enum:
-            - vnet-demo-1
-            - vnet-demo-2 
+        # vnetName:
+        #   title: Virtual Network Name
+        #   type: string
+        #   description: Virtual network name
+        #   enum:
+        #     - vnet-demo-1
+        #     - vnet-demo-2 
 
-        apiSubnet:
-          title: API Subnet
-          type: string
-          description: Subnet to use for api server.
-          enum:
-            - api-subnet-01
-            - api-subnet-02
+        # apiSubnet:
+        #   title: API Subnet
+        #   type: string
+        #   description: Subnet to use for api server.
+        #   enum:
+        #     - api-subnet-01
+        #     - api-subnet-02
 
-        nodeSubnet:
-          title: Worker Node Subnet
-          type: string
-          description: Subnet to use for worker nodes
-          enum:
-            - node-subnet-01
-            - node-subnet-02
+        # nodeSubnet:
+        #   title: Worker Node Subnet
+        #   type: string
+        #   description: Subnet to use for worker nodes
+        #   enum:
+        #     - node-subnet-01
+        #     - node-subnet-02
 
         kubernetesVersion:
           title: Kubernetes Version

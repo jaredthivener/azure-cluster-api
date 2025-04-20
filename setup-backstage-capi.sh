@@ -38,9 +38,6 @@ if [[ -z "${GITHUB_TOKEN}" ]]; then
   export GITHUB_TOKEN
 fi
 
-# Backstage configuration
-BACKSTAGE_DIR="$(pwd)/backstage"
-
 # Logging configuration
 LOG_FILE="$(pwd)/setup-backstage-capi-$(date +%Y%m%d-%H%M%S).log"
 LOG_LEVEL="INFO"  # DEBUG, INFO, WARN, ERROR
@@ -401,158 +398,6 @@ EOF
     return 0
 }
 
-# Install and configure Backstage
-setup_backstage() {
-    log "INFO" "Setting up Backstage..."
-    
-    # Check if Backstage directory already exists
-    if [[ -d "${BACKSTAGE_DIR}" ]]; then
-        log "INFO" "Backstage directory already exists at ${BACKSTAGE_DIR}."
-        log "INFO" "Using existing Backstage installation."
-        return 0
-    fi
-    
-    # Create Backstage app with default values (non-interactive)
-    log "INFO" "Creating new Backstage app..."
-    echo "backstage" | npx @backstage/create-app@latest --path "${BACKSTAGE_DIR}" || {
-        log "ERROR" "Failed to create Backstage app."
-        return 1
-    }
-    
-    # Navigate to Backstage directory
-    cd "${BACKSTAGE_DIR}" || {
-        log "ERROR" "Failed to navigate to Backstage directory."
-        return 1
-    }
-    
-    # Set GitHub token in the environment for Backstage
-    export GITHUB_TOKEN="${GITHUB_TOKEN}"
-    
-    # Create a simple app-config.local.yaml with just the GitHub token
-    log "INFO" "Creating basic app-config.local.yaml..."
-    cat > "${BACKSTAGE_DIR}/app-config.local.yaml" << EOF
-integrations:
-  github:
-    - host: github.com
-      token: \${GITHUB_TOKEN}
-EOF
-    
-    # Install dependencies
-    log "INFO" "Installing Backstage dependencies..."
-    yarn install || {
-        log "ERROR" "Failed to install Backstage dependencies."
-        return 1
-    }
-    
-    log "INFO" "Backstage setup complete."
-    log "INFO" "You can start Backstage by running: cd ${BACKSTAGE_DIR} && yarn dev"
-    
-    # Automatically start Backstage in the background
-    log "INFO" "Starting Backstage automatically..."
-    (cd "${BACKSTAGE_DIR}" && GITHUB_TOKEN="${GITHUB_TOKEN}" yarn dev &)
-    
-    # Wait for Backstage to start
-    log "INFO" "Waiting for Backstage to start up (this may take a minute)..."
-    sleep 15
-    
-    log "WARN" "Backstage may still be starting up. Please visit http://localhost:3000 in your browser."
-    # Try to open browser anyway
-    if command -v open &>/dev/null; then
-        open "http://localhost:3000" &>/dev/null || true
-    fi
-    
-    return 0
-}
-
-# Configure Backstage GitHub plugins
-configure_backstage_github_plugins() {
-    log "INFO" "Configuring Backstage GitHub plugins..."
-    
-    if [[ ! -d "${BACKSTAGE_DIR}" ]]; then
-        log "ERROR" "Backstage directory not found at ${BACKSTAGE_DIR}. Please run setup_backstage first."
-        return 1
-    fi
-    
-    cd "${BACKSTAGE_DIR}" || {
-        log "ERROR" "Failed to navigate to Backstage directory."
-        return 1
-    }
-    
-    # Install GitHub scaffolder and catalog backend plugins
-    log "INFO" "Installing GitHub plugins..."
-    yarn --cwd packages/backend add @backstage/plugin-scaffolder-backend-module-github || {
-        log "ERROR" "Failed to install scaffolder GitHub plugin."
-        return 1
-    }
-    
-    yarn --cwd packages/backend add @backstage/plugin-catalog-backend-module-github || {
-        log "ERROR" "Failed to install catalog GitHub plugin."
-        return 1
-    }
-    
-    # Update the backend index.ts file to include GitHub plugins
-    log "INFO" "Updating backend configuration in packages/backend/src/index.ts..."
-    
-    # Backup the original file
-    cp "${BACKSTAGE_DIR}/packages/backend/src/index.ts" "${BACKSTAGE_DIR}/packages/backend/src/index.ts.bak" || {
-        log "ERROR" "Failed to create backup of index.ts file."
-        return 1
-    }
-    
-    # Check if plugins are already imported
-    if grep -q "@backstage/plugin-scaffolder-backend-module-github" "${BACKSTAGE_DIR}/packages/backend/src/index.ts"; then
-        log "INFO" "GitHub scaffolder plugin already configured."
-    else
-        # For macOS, the -i '' format is required for sed
-        sed -i '' -e '/backend.add(import('\''@backstage\/plugin-scaffolder-backend'\''));/a\'$'\n''backend.add(import('\''@backstage/plugin-scaffolder-backend-module-github'\''));' "${BACKSTAGE_DIR}/packages/backend/src/index.ts" || {
-            log "ERROR" "Failed to add GitHub scaffolder plugin to index.ts."
-            # Restore backup if modification failed
-            mv "${BACKSTAGE_DIR}/packages/backend/src/index.ts.bak" "${BACKSTAGE_DIR}/packages/backend/src/index.ts"
-            return 1
-        }
-    fi
-    
-    if grep -q "@backstage/plugin-catalog-backend-module-github" "${BACKSTAGE_DIR}/packages/backend/src/index.ts"; then
-        log "INFO" "GitHub catalog plugin already configured."
-    else
-        # For macOS, the -i '' format is required for sed
-        sed -i '' -e '/backend.add(import('\''@backstage\/plugin-catalog-backend'\''));/a\'$'\n''backend.add(import('\''@backstage/plugin-catalog-backend-module-github'\''));' "${BACKSTAGE_DIR}/packages/backend/src/index.ts" || {
-            log "ERROR" "Failed to add GitHub catalog plugin to index.ts."
-            # Restore backup if modification failed
-            mv "${BACKSTAGE_DIR}/packages/backend/src/index.ts.bak" "${BACKSTAGE_DIR}/packages/backend/src/index.ts"
-            return 1
-        }
-    fi
-    log "INFO" "Backend configuration updated successfully."
-    log "INFO" "You can now add your GitHub actions to the Backstage catalog."
-    log "INFO" "Please ensure you have the correct permissions for the GitHub repository."
-    
-    # Restart Backstage to apply changes
-    log "INFO" "Restarting Backstage to apply plugin changes..."
-    
-    # Find and kill existing Backstage process
-    pkill -f "node .*backstage.*" || true
-    sleep 2
-    
-    # Start Backstage again
-    log "INFO" "Starting Backstage with new plugins..."
-    (cd "${BACKSTAGE_DIR}" && GITHUB_TOKEN="${GITHUB_TOKEN}" yarn dev &)
-    
-    # Wait for Backstage to start
-    log "INFO" "Waiting for Backstage to start up with new plugins (this may take a minute)..."
-    sleep 20
-    
-    log "INFO" "GitHub plugins installed successfully."
-    log "INFO" "You can now check available GitHub actions at http://localhost:3000/create/actions"
-    
-    # Try to open browser
-    if command -v open &>/dev/null; then
-        open "http://localhost:3000/create/actions" &>/dev/null || true
-    fi
-    
-    return 0
-}
-
 # =============================================================================
 #                             MAIN SCRIPT
 # =============================================================================
@@ -562,7 +407,7 @@ main() {
     
     # Print script banner
     log "INFO" "===================================================================="
-    log "INFO" "    Backstage + Cluster API Self-Service AKS Setup"
+    log "INFO" "    Cluster API for AKS Setup"
     log "INFO" "    Created by: Jared Thivener"
     log "INFO" "    Date: $(date +%Y-%m-%d)"
     log "INFO" "===================================================================="
@@ -603,8 +448,6 @@ main() {
     verify_tool "flux" "flux --version" "2.1.0" || exit 1
     verify_tool "clusterctl" "clusterctl version" "1.5.0" || exit 1
     verify_tool "helm" "helm version" "3.13.0" || exit 1
-    verify_tool "node" "node --version" "18.0.0" || exit 1
-    verify_tool "yarn" "yarn --version" "1.22.0" || exit 1
     
     # Azure login
     log "INFO" "Logging in to Azure..."
@@ -684,42 +527,6 @@ main() {
     create_service_principal || exit 1
     
     log "INFO" "
-╭──────────────────────────────────────────────────────╮
-│                                                      │
-│    ██████╗  █████╗  ██████╗██╗  ██╗                  │
-│    ██╔══██╗██╔══██╗██╔════╝██║ ██╔╝                  │
-│    ██████╔╝███████║██║     █████╔╝                   │
-│    ██╔══██╗██╔══██║██║     ██╔═██╗                   │
-│    ██████╔╝██║  ██║╚██████╗██║  ██╗                  │
-│    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝                  │
-│                                                      │
-│    ███████╗████████╗ █████╗  ██████╗ ███████╗        │
-│    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝ ██╔════╝        │
-│    ███████╗   ██║   ███████║██║  ███╗█████╗          │
-│    ╚════██║   ██║   ██╔══██║██║   ██║██╔══╝          │
-│    ███████║   ██║   ██║  ██║╚██████╔╝███████╗        │
-│    ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝        │
-│                                                      │
-│             BACKSTAGE INSTALLATION                   │
-│                                                      │
-╰──────────────────────────────────────────────────────╯"
-    setup_backstage || exit 1
-    
-    log "INFO" "
-╭──────────────────────────────────────────────────────╮
-│                                                      │
-│    ██████╗ ██╗████████╗██╗  ██╗██╗   ██╗██████╗      │
-│   ██╔════╝ ██║╚══██╔══╝██║  ██║██║   ██║██╔══██╗     │
-│   ██║  ███╗██║   ██║   ███████║██║   ██║██████╔╝     │
-│   ██║   ██║██║   ██║   ██╔══██║██║   ██║██╔══██╗     │
-│   ╚██████╔╝██║   ██║   ██║  ██║╚██████╔╝██████╔╝     │
-│    ╚═════╝ ╚═╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═════╝      │
-│        PLUGIN CONFIGURATION FOR GITHUB               │
-│                                                      │
-╰──────────────────────────────────────────────────────╯"
-    configure_backstage_github_plugins || exit 1
-    
-    log "INFO" "
 ╭────────────────────────────────────────────────────────────────────────╮
 │                                                                        │
 │   ██████╗ ██████╗ ███╗   ███╗██████╗ ██║     ███████╗████████╗███████╗ │
@@ -730,11 +537,8 @@ main() {
 │   ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝   ╚══════╝ │
 │                                                                        │
 │                                                                        │
-│                                                                        │
 │                  SETUP COMPLETED SUCCESSFULLY!                         │
-│                                                                        │
-│            Backstage has been automatically started                    │
-│         and should be available at http://localhost:3000               │
+|                                                                        |
 │                                                                        │
 ╰────────────────────────────────────────────────────────────────────────╯"
 }
