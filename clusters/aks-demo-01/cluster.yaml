@@ -35,8 +35,8 @@ spec:
   location: eastus
   subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
   version: 1.32.3
-  networkPolicy: azure # or calico/cilium
-  networkPlugin: azure # or kubenet
+  networkPolicy: azure
+  networkPlugin: azure
   networkDataplane: cilium
   loadBalancerSKU: Standard
   identityRef:
@@ -63,7 +63,6 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: system
-  namespace: default 
 spec:
   clusterName: aks-demo-01
   replicas: 2
@@ -81,8 +80,33 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
 metadata:
   name: system
-  namespace: default
 spec:
   mode: System
   osDiskSizeGB: 30
+  sku: Standard_D2s_v3
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: app
+spec:
+  clusterName: aks-demo-01
+  replicas: 2
+  template:
+    spec:
+      clusterName: aks-demo-01
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: app
+        namespace: default
+      version: 1.32.3
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: app
+spec:
+  mode: User
+  osDiskSizeGB: 40
   sku: Standard_D2s_v3
