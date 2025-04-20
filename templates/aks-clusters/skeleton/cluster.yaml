@@ -35,8 +35,9 @@ spec:
   location: ${{ values.region }}
   subscriptionID: ${{ values.subscriptionId }}
   version: ${{ values.kubernetesVersion }}
-  networkPolicy: azure # or calico/cilium
-  networkPlugin: azure # or kubenet
+  networkPolicy: cilium
+  networkPlugin: azure
+  networkPluginMode: overlay
   networkDataplane: cilium
   loadBalancerSKU: Standard
   identityRef:
@@ -54,21 +55,24 @@ spec:
   sku:
     tier: Free
   addonProfiles:
-    azureKeyvaultSecretsProvider:
-      enabled: true
-    azurepolicy:
-      enabled: true
+  - name: azureKeyvaultSecretsProvider
+    enabled: true
+  - name: azurepolicy
+    enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: system
+  namespace: default
 spec:
   clusterName: ${{ values.clusterName }}
-  replicas: ${{ values.nodeCount }}
+  replicas: 2
   template:
     spec:
       clusterName: ${{ values.clusterName }}
+      bootstrap:
+        dataSecretName: ""  # Empty value for AKS-managed nodes
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
@@ -80,8 +84,38 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
 metadata:
   name: system
+  namespace: default
 spec:
   mode: System
   osDiskSizeGB: 30
+  sku: Standard_D2s_v3
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: app
+  namespace: default
+spec:
+  clusterName: ${{ values.clusterName }}
+  replicas: ${{ values.nodeCount }}
+  template:
+    spec:
+      clusterName: ${{ values.clusterName }}
+      bootstrap:
+        dataSecretName: ""  # Empty value for AKS-managed nodes
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: app
+        namespace: default
+      version: ${{ values.kubernetesVersion }}
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: app
+  namespace: default
+spec:
+  mode: User
+  osDiskSizeGB: 40
   sku: ${{ values.nodeSku }}
-  availabilityZones: ["1", "2", "3"]
