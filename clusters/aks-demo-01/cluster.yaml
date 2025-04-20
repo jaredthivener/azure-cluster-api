@@ -63,6 +63,7 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: system
+  namespace: default 
 spec:
   clusterName: aks-demo-01
   replicas: 2
