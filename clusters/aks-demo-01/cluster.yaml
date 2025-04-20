@@ -37,6 +37,7 @@ spec:
   version: 1.32.3
   networkPolicy: cilium
   networkPlugin: azure
+  networkPluginMode: overlay
   networkDataplane: cilium
   loadBalancerSKU: Standard
   identityRef:
