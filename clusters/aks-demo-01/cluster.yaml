@@ -35,8 +35,8 @@ spec:
   location: eastus
   subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
   version: 1.32.3
-  networkPolicy: azure
-  networkPlugin: azure
+  networkPolicy: cilium
+  networkPlugin: overlay
   networkDataplane: cilium
   loadBalancerSKU: Standard
   identityRef:
