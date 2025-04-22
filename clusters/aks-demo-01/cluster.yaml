@@ -86,6 +86,7 @@ metadata:
   name: system
   namespace: default
 spec:
+  version: 1.32.3
   mode: System
   osDiskSizeGB: 30
   osDiskType: Ephemeral
@@ -121,6 +122,7 @@ metadata:
   name: app
   namespace: default
 spec:
+  version: 1.32.3
   mode: User
   osDiskSizeGB: 40
   sku: Standard_D2s_v3
