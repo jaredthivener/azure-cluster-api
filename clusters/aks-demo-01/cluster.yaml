@@ -33,7 +33,7 @@ metadata:
 spec:
   resourceGroupName: rg-aks-demo-01
   location: eastus
-  subscriptionID: AzureProduction
+  subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
   version: 1.31.7
   networkPolicy: cilium
   networkPlugin: azure
