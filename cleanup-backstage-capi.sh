@@ -314,20 +314,23 @@ cleanup_service_principals() {
         fi
     done
     
-    # Verify deletion
+    # Verify deletion with retries
     log "INFO" "Verifying service principal deletion..."
-    sleep 5 # Give Azure some time to process the deletions
-    
-    sp_data=$(az ad app list --filter "startswith(displayName,'ClusterAPI')" --query "[].{DisplayName:displayName, AppId:appId}" -o json)
-    if [[ $(echo "$sp_data" | jq length) -gt 0 ]]; then
-        log "WARN" "Some ClusterAPI service principals still exist and could not be deleted automatically:"
-        echo "$sp_data" | jq -r '.[] | "- \(.DisplayName) (AppID: \(.AppId))"'
-        log "WARN" "Please delete these manually from the Azure portal with these commands:"
-        echo "$sp_data" | jq -r '.[] | "az ad app delete --id \(.AppId)"'
-    else
-        log "INFO" "All ClusterAPI service principals have been successfully deleted."
-    fi
-    
+    for i in {1..6}; do
+        sleep 5 # Wait for Azure to process deletions
+        sp_data=$(az ad app list --filter "startswith(displayName,'ClusterAPI')" --query "[].{DisplayName:displayName, AppId:appId}" -o json)
+        if [[ $(echo "$sp_data" | jq length) -eq 0 ]]; then
+            log "INFO" "All ClusterAPI service principals have been successfully deleted."
+            break
+        fi
+        if [[ $i -eq 6 ]]; then
+            log "WARN" "Some ClusterAPI service principals still exist and could not be deleted automatically:"
+            echo "$sp_data" | jq -r '.[] | "- \(.DisplayName) (AppID: \(.AppId))"'
+            log "WARN" "Please delete these manually from the Azure portal with these commands:"
+            echo "$sp_data" | jq -r '.[] | "az ad app delete --id \(.AppId)"'
+        fi
+    done
+
     return 0
 }
 
@@ -407,7 +410,7 @@ main() {
         log "INFO" "AKS cluster ${MGMT_CLUSTER_NAME} not found. Skipping CAPI cleanup."
     else
         log "INFO" "Getting credentials for AKS cluster..."
-        az aks get-credentials --resource-group "${RESOURCE_GROUP_NAME}" --name "${MGMT_CLUSTER_NAME}" --overwrite-existing || {
+        az aks get-credentials --resource-group "${RESOURCE_GROUP_NAME}" --name "${MGMT_CLUSTER_NAME}" --admin --overwrite-existing || {
             log "ERROR" "Failed to get AKS credentials. Skipping CAPI cluster cleanup."
         }
         
@@ -453,6 +456,7 @@ main() {
             fi
         else
             log "WARN" "Cannot access Kubernetes API. Skipping CAPI cluster cleanup."
+            kubectl get nodes || log "ERROR" "kubectl get nodes failed. Check your AKS cluster status and credentials."
         fi
     fi
     

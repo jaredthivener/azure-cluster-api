@@ -16,7 +16,7 @@ AZURE_SUBSCRIPTION_ID="f645938d-2368-4a99-b589-ea72e5544719"
 AZURE_LOCATION="eastus"
 RESOURCE_GROUP_NAME="rg-mgmt-aks-${AZURE_LOCATION}"
 MGMT_CLUSTER_NAME="mgmt-capi-cluster"
-K8S_VERSION="1.31.7"
+K8S_VERSION="1.32.3"
 CNI_PLUGIN="cilium"
 
 # AAD Admin Group ID - if left empty, will use current user
