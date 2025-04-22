@@ -58,9 +58,7 @@ spec:
   - name: azureKeyvaultSecretsProvider
     enabled: true
   - name: azurepolicy
-    enabled: true
-  - name: monitoring
-    enabled: true  
+    enabled: true 
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
