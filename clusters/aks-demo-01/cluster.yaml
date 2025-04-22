@@ -1,0 +1,132 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  name: aks-demo-01
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["10.0.0.0/16"]
+    services:
+      cidrBlocks: ["10.128.0.0/12"]
+    serviceDomain: "cluster.local"
+  controlPlaneRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedControlPlane
+    name: aks-demo-01
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedCluster
+    name: aks-demo-01
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedCluster
+metadata:
+  name: aks-demo-01
+  namespace: default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedControlPlane
+metadata:
+  name: aks-demo-01
+  namespace: default
+spec:
+  resourceGroupName: rg-aks-demo-01
+  location: eastus
+  subscriptionID: AzureProduction
+  version: 1.31.7
+  networkPolicy: cilium
+  networkPlugin: azure
+  networkPluginMode: overlay
+  networkDataplane: cilium
+  loadBalancerSKU: Standard
+  identityRef:
+    kind: AzureClusterIdentity
+    name: cluster-identity
+  enablePreviewFeatures: true
+  oidcIssuerProfile:
+    enabled: true
+  securityProfile:
+    workloadIdentity:
+      enabled: true
+    imageCleaner:
+      enabled: true
+      intervalHours: 24
+  sku:
+    tier: Free
+  addonProfiles:
+  - name: azureKeyvaultSecretsProvider
+    enabled: true
+  - name: azurepolicy
+    enabled: true
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: system
+  namespace: default
+spec:
+  clusterName: aks-demo-01
+  replicas: 2
+  template:
+    spec:
+      clusterName: aks-demo-01
+      version: 1.31.7
+      bootstrap:
+        dataSecretName: ""  # Empty value for AKS-managed nodes
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: system
+        namespace: default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: system
+  namespace: default
+spec:
+  version: 1.31.7
+  mode: System
+  osDiskSizeGB: 30
+  osDiskType: Ephemeral
+  sku: Standard_D2s_v3
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachinePool
+metadata:
+  name: app
+  namespace: default
+spec:
+  clusterName: aks-demo-01
+  replicas: 2
+  template:
+    spec:
+      clusterName: aks-demo-01
+      version: 1.31.7
+      bootstrap:
+        dataSecretName: ""  # Empty value for AKS-managed nodes
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
+        name: app
+        namespace: default
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+kind: AzureManagedMachinePool
+metadata:
+  name: app
+  namespace: default
+spec:
+  version: 1.31.7
+  mode: User
+  osDiskSizeGB: 40
+  sku: Standard_D2s_v3
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"
