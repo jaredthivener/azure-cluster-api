@@ -43,7 +43,7 @@ spec:
   identityRef:
     kind: AzureClusterIdentity
     name: cluster-identity
-  enablePreviewFeatures: true
+  enablePreviewFeatures: false
   oidcIssuerProfile:
     enabled: true
   securityProfile:
@@ -69,7 +69,10 @@ spec:
   clusterName: aks-demo-01
   replicas: 2
   template:
+    metadata: {}
     spec:
+      bootstrap:
+        dataSecretName: ""
       clusterName: aks-demo-01
       version: 1.31.7
       infrastructureRef:
@@ -102,7 +105,10 @@ spec:
   clusterName: aks-demo-01
   replicas: 2
   template:
+    metadata: {}
     spec:
+      bootstrap:
+        dataSecretName: ""
       clusterName: aks-demo-01
       version: 1.31.7
       infrastructureRef:
