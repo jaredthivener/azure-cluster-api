@@ -34,7 +34,7 @@ spec:
   resourceGroupName: rg-aks-demo-01
   location: eastus
   subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
-  version: 1.31.7
+  version: 1.32.3
   networkPolicy: cilium
   networkPlugin: azure
   networkPluginMode: overlay
@@ -74,7 +74,7 @@ spec:
       bootstrap:
         dataSecretName: "azure-managed"
       clusterName: aks-demo-01
-      version: 1.31.7
+      version: 1.32.3
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
@@ -110,7 +110,7 @@ spec:
       bootstrap:
         dataSecretName: "azure-managed"
       clusterName: aks-demo-01
-      version: 1.31.7
+      version: 1.32.3
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
