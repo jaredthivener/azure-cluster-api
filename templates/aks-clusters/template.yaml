@@ -88,7 +88,7 @@ spec:
         repoUrl:
           title: Repository URL
           type: string
-          default: github.com?repo=backstage-on-aks&owner=jaredthivener
+          default: github.com?repo=azure-cluster-api&owner=jaredthivener
           description: Git repository for Flux CD to monitor
           ui:field: RepoUrlPicker
           ui:options:
