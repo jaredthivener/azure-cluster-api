@@ -102,12 +102,11 @@ spec:
           default: main
           description: Branch to commit to in the repository
 
-  steps:
     - id: fetch-template
       name: Render Cluster YAML
       action: fetch:template
       input:
-        url: ./cluster-api-templates
+        url: https://github.com/jaredthivener/backstage-on-aks/tree/main/templates/aks-clusters/skeleton
         values:
           clusterName:        ${{ parameters.clusterName }}
           region:             ${{ parameters.region }}
@@ -116,7 +115,7 @@ spec:
           nodeSku:            ${{ parameters.nodeSku }}
           nodeCount:          ${{ parameters.nodeCount }}
           resourceGroup:      ${{ parameters.clusterName }}
-        targetPath: ./content   # ← use targetPath, not outputPath
+        targetPath: ./content
 
     - id: debug-list-content
       name: List content directory
