@@ -13,7 +13,7 @@ spec:
   controlPlaneRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AzureManagedControlPlane
-    name: ${{ values.clusterName }}-control-plane
+    name: ${{ values.clusterName }}
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AzureManagedCluster
@@ -28,7 +28,7 @@ metadata:
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedControlPlane
 metadata:
-  name: ${{ values.clusterName }}-control-plane
+  name: ${{ values.clusterName }}
   namespace: default
 spec:
   resourceGroupName: rg-${{ values.clusterName }}
@@ -43,7 +43,7 @@ spec:
   identityRef:
     kind: AzureClusterIdentity
     name: cluster-identity
-  enablePreviewFeatures: true
+  enablePreviewFeatures: false
   oidcIssuerProfile:
     enabled: true
   securityProfile:
@@ -57,8 +57,6 @@ spec:
   addonProfiles:
   - name: azureKeyvaultSecretsProvider
     enabled: true
-  - name: azurepolicy
-    enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
@@ -69,16 +67,17 @@ spec:
   clusterName: ${{ values.clusterName }}
   replicas: 2
   template:
+    metadata: {}
     spec:
-      clusterName: ${{ values.clusterName }}
       bootstrap:
-        dataSecretName: ""  # Empty value for AKS-managed nodes
+        dataSecretName: "azure-managed"
+      clusterName: ${{ values.clusterName }}
+      version: ${{ values.kubernetesVersion }}
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
         name: system
         namespace: default
-      version: ${{ values.kubernetesVersion }}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
@@ -88,7 +87,12 @@ metadata:
 spec:
   mode: System
   osDiskSizeGB: 30
-  sku: Standard_D2s_v3
+  osDiskType: Ephemeral
+  sku: Standard_D2pds_v5
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
@@ -99,16 +103,17 @@ spec:
   clusterName: ${{ values.clusterName }}
   replicas: ${{ values.nodeCount }}
   template:
+    metadata: {}
     spec:
-      clusterName: ${{ values.clusterName }}
       bootstrap:
-        dataSecretName: ""  # Empty value for AKS-managed nodes
+        dataSecretName: "azure-managed"
+      clusterName: ${{ values.clusterName }}
+      version: ${{ values.kubernetesVersion }}
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
         name: app
         namespace: default
-      version: ${{ values.kubernetesVersion }}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
@@ -117,5 +122,10 @@ metadata:
   namespace: default
 spec:
   mode: User
-  osDiskSizeGB: 40
+  osDiskSizeGB: 30
+  osDiskType: Ephemeral
   sku: ${{ values.nodeSku }}
+  availabilityZones:
+    - "1"
+    - "2"
+    - "3"

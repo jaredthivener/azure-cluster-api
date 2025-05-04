@@ -12,9 +12,6 @@ spec:
     - title: Azure Configuration
       required:
         - subscriptionId
-        # - vnetName
-        # - apiSubnet
-        # - nodeSubnet
         - clusterName
         - kubernetesVersion
         - nodeSku
@@ -29,13 +26,16 @@ spec:
           maxLength: 63
 
         subscriptionId:
-          title: Azure Subscription ID
+          title: Azure Subscription
           type: string
-          description: Azure subscription ID for the cluster
-          ui:autofocus: true
+          description: Select the Azure subscription to deploy the cluster in
           enum:
             - f645938d-2368-4a99-b589-ea72e5544719
-            - AzureProduction
+            - b8aa5c3e-0d9b-4825-93e5-527ced1b4503
+          ui:options:
+            enumNames:
+              - AzureSandbox
+              - AzureProduction
           default: f645938d-2368-4a99-b589-ea72e5544719
 
         region:
@@ -48,29 +48,6 @@ spec:
             - centralus
           default: eastus
 
-        # vnetName:
-        #   title: Virtual Network Name
-        #   type: string
-        #   description: Virtual network name
-        #   enum:
-        #     - vnet-demo-1
-        #     - vnet-demo-2 
-
-        # apiSubnet:
-        #   title: API Subnet
-        #   type: string
-        #   description: Subnet to use for api server.
-        #   enum:
-        #     - api-subnet-01
-        #     - api-subnet-02
-
-        # nodeSubnet:
-        #   title: Worker Node Subnet
-        #   type: string
-        #   description: Subnet to use for worker nodes
-        #   enum:
-        #     - node-subnet-01
-        #     - node-subnet-02
 
         kubernetesVersion:
           title: Kubernetes Version
@@ -87,16 +64,14 @@ spec:
           description: Azure VM size for the nodes
           ui:options:
             enumNames:
-              - Standard_D2s_v3 (2 vCPUs, 8 GiB memory)
-              - Standard_D4s_v3 (4 vCPUs, 16 GiB memory)
-              - Standard_D8s_v3 (8 vCPUs, 32 GiB memory)
-              - Standard_D16s_v3 (16 vCPUs, 64 GiB memory)
+              - Standard_D2pds_v5 (2 vCPUs, 8 GiB memory)
+              - Standard_D4pds_v5 (4 vCPUs, 16 GiB memory)
+              - Standard_D8pds_v5 (8 vCPUs, 32 GiB memory)
           enum:
-            - Standard_D2s_v3
-            - Standard_D4s_v3
-            - Standard_D8s_v3
-            - Standard_D16s_v3
-          default: Standard_D2s_v3
+            - Standard_D2pds_v5
+            - Standard_D4pds_v5
+            - Standard_D8pds_v5
+          default: Standard_D2pds_v5
 
         nodeCount:
           title: Node Count
@@ -138,9 +113,6 @@ spec:
           region:             ${{ parameters.region }}
           kubernetesVersion:  ${{ parameters.kubernetesVersion }}
           subscriptionId:     ${{ parameters.subscriptionId }}
-          vnetName:           ${{ parameters.vnetName }}
-          controlPlaneSubnet: ${{ parameters.apiSubnet }}
-          nodeSubnet:         ${{ parameters.nodeSubnet }}
           nodeSku:            ${{ parameters.nodeSku }}
           nodeCount:          ${{ parameters.nodeCount }}
           resourceGroup:      ${{ parameters.clusterName }}
@@ -152,30 +124,12 @@ spec:
       input:
         listWorkspace: true
 
-    # - id: debug-print-files
-    #   name: Print File Contents
-    #   action: debug:log
-    #   input:
-    #     message: |
-    #       FILE CONTENTS:
-    #       ${{ fs.readdir('./content') }}
-
-    # - id: debug-file-content
-    #   name: Debug File Content
-    #   action: debug:log
-    #   input:
-    #     message: |
-    #       Content of catalog-info.yaml:
-    #       ${{ fs.readFile('./content/catalog-info.yaml') }}
-
-    #       Content of cluster.yaml:
-    #       ${{ fs.readFile('./content/cluster.yaml') }}
-
-    # - id: register-component
-    #   name: Register Component in Backstage
-    #   action: catalog:register
-    #   input:
-    #     catalogInfoUrl: ./content/catalog-info.yaml
+    - id: remove-catalog-info
+      name: Remove catalog info file
+      action: fs:delete
+      input:
+        files:
+          - ./content/catalog-info.yaml
 
     - id: publish-cluster
       name: Publish Cluster YAML

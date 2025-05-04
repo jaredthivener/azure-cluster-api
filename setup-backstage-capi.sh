@@ -147,8 +147,8 @@ create_management_cluster() {
         az aks create \
             --resource-group "${RESOURCE_GROUP_NAME}" \
             --name "${MGMT_CLUSTER_NAME}" \
-            --node-count 3 \
-            --node-vm-size Standard_D2d_v4 \
+            --node-count 2 \
+            --node-vm-size Standard_D2d_v5 \
             --ssh-access disabled \
             --enable-managed-identity \
             --enable-oidc-issuer \
@@ -166,10 +166,6 @@ create_management_cluster() {
             --node-osdisk-size 75 \
             --node-osdisk-type Ephemeral \
             --max-pods 110 \
-            --enable-cluster-autoscaler \
-            --min-count 3 \
-            --max-count 5 \
-            --enable-defender \
             --os-sku AzureLinux \
             --tags environment=management purpose=clusterapi owner=jared || {
             log "ERROR" "Failed to create AKS cluster."
