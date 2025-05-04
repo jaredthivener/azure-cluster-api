@@ -5,7 +5,7 @@ metadata:
   title: Create an Azure Kubernetes Cluster
   description: Deploy a Kubernetes cluster to Azure.
 spec:
-  owner: group:platform-team
+  owner: guest
   type: infrastructure
 
   parameters:
