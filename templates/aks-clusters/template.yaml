@@ -48,7 +48,6 @@ spec:
             - centralus
           default: eastus
 
-
         kubernetesVersion:
           title: Kubernetes Version
           type: string
@@ -102,6 +101,7 @@ spec:
           default: main
           description: Branch to commit to in the repository
 
+  steps:
     - id: fetch-template
       name: Render Cluster YAML
       action: fetch:template
