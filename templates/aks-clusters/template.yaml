@@ -117,18 +117,18 @@ spec:
           resourceGroup:      ${{ parameters.clusterName }}
         targetPath: ./content
 
-    # - id: debug-list-content
-    #   name: List content directory
-    #   action: debug:log
-    #   input:
-    #     listWorkspace: true
+    - id: debug-list-content
+      name: List content directory
+      action: debug:log
+      input:
+        listWorkspace: true
 
-    # - id: remove-catalog-info
-    #   name: Remove catalog info file
-    #   action: fs:delete
-    #   input:
-    #     files:
-    #       - ./content/catalog-info.yaml
+    - id: remove-catalog-info
+      name: Remove catalog info file
+      action: fs:delete
+      input:
+        files:
+          - ./content/catalog-info.yaml
 
     - id: publish-cluster
       name: Publish Cluster YAML
