@@ -106,7 +106,7 @@ spec:
       name: Render Cluster YAML
       action: fetch:template
       input:
-        url: https://github.com/jaredthivener/azure-cluster-api/tree/main/templates/aks-clusters/skeleton
+        url: https://github.com/jaredthivener/azure-cluster-api/tree/main/templates/cluster-templates/skeleton
         values:
           clusterName:        ${{ parameters.clusterName }}
           region:             ${{ parameters.region }}
