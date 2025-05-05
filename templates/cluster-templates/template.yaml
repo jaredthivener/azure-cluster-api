@@ -3,7 +3,7 @@ kind: Template
 metadata:
   name: azure-kubernetes-cluster-template
   title: Create an Azure Kubernetes Cluster
-  description: Deploy a Kubernetes cluster to Azure and register it in Backstage Catalog
+  description: Deploy a Kubernetes cluster to Azure.
 spec:
   owner: guest
   type: infrastructure
@@ -102,9 +102,8 @@ spec:
           description: Branch to commit to in the repository
 
   steps:
-    # 1️⃣ Fetch and render both cluster.yaml + catalog-info.yaml
     - id: fetch-template
-      name: Render Cluster YAML & catalog-info.yaml
+      name: Render Cluster YAML
       action: fetch:template
       input:
         url: https://github.com/jaredthivener/azure-cluster-api/tree/main/templates/cluster-templates/skeleton
@@ -118,16 +117,21 @@ spec:
           resourceGroup:      ${{ parameters.clusterName }}
         targetPath: ./content
 
-    # 2️⃣ Debug workspace contents (optional but helpful)
     - id: debug-list-content
       name: List content directory
       action: debug:log
       input:
         listWorkspace: true
 
-    # 3️⃣ Publish cluster.yaml to clusters/<clusterName>/ (for FluxCD)
-    - id: publish-cluster-yaml
-      name: Publish cluster.yaml
+    - id: remove-catalog-info
+      name: Remove catalog info file
+      action: fs:delete
+      input:
+        files:
+          - ./content/catalog-info.yaml
+
+    - id: publish-cluster
+      name: Publish Cluster YAML
       action: publish:github:pull-request
       input:
         repoUrl:     ${{ parameters.repoUrl }}
@@ -135,30 +139,10 @@ spec:
         title:       "Add Cluster YAML for ${{ parameters.clusterName }}"
         description: "Automated PR from Backstage template"
         sourcePath:  ./content
-        targetPath:  clusters/${{ parameters.clusterName }}/cluster.yaml
+        targetPath:  clusters/${{ parameters.clusterName }}
         update:      true
-
-    # 4️⃣ Publish catalog-info.yaml to catalog/<clusterName>/ (for Backstage)
-    - id: publish-catalog-info
-      name: Publish catalog-info.yaml
-      action: publish:github:pull-request
-      input:
-        repoUrl:     ${{ parameters.repoUrl }}
-        branchName:  cluster-api/${{ parameters.clusterName }}
-        title:       "Add catalog-info.yaml for ${{ parameters.clusterName }}"
-        description: "Automated PR from Backstage template"
-        sourcePath:  ./content
-        targetPath:  catalog/${{ parameters.clusterName }}/catalog-info.yaml
-        update:      true
-
-    # 5️⃣ Register the catalog-info.yaml in Backstage
-    - id: register-cluster
-      name: Register cluster in Backstage catalog
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps['publish-catalog-info'].output.remoteUrl }}/blob/main/catalog/${{ parameters.clusterName }}/catalog-info.yaml
 
   output:
     links:
       - title: Repository
-        url: ${{ steps['publish-cluster-yaml'].output.remoteUrl }}
+        url: ${{ steps['publish-cluster'].output.remoteUrl }}
