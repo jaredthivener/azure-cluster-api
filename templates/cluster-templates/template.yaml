@@ -127,27 +127,27 @@ spec:
 
     # 3️⃣ Publish cluster.yaml to clusters/<clusterName>/ (for FluxCD)
     - id: publish-cluster-yaml
-      name: Publish cluster.yaml (FluxCD watches this)
+      name: Publish cluster.yaml
       action: publish:github:pull-request
       input:
         repoUrl:     ${{ parameters.repoUrl }}
         branchName:  cluster-api/${{ parameters.clusterName }}
         title:       "Add Cluster YAML for ${{ parameters.clusterName }}"
         description: "Automated PR from Backstage template"
-        sourcePath:  ./content/cluster.yaml
+        sourcePath:  ./content
         targetPath:  clusters/${{ parameters.clusterName }}/cluster.yaml
         update:      true
 
     # 4️⃣ Publish catalog-info.yaml to catalog/<clusterName>/ (for Backstage)
     - id: publish-catalog-info
-      name: Publish catalog-info.yaml (Backstage watches this)
+      name: Publish catalog-info.yaml
       action: publish:github:pull-request
       input:
         repoUrl:     ${{ parameters.repoUrl }}
         branchName:  cluster-api/${{ parameters.clusterName }}
         title:       "Add catalog-info.yaml for ${{ parameters.clusterName }}"
         description: "Automated PR from Backstage template"
-        sourcePath:  ./content/catalog-info.yaml
+        sourcePath:  ./content
         targetPath:  catalog/${{ parameters.clusterName }}/catalog-info.yaml
         update:      true
 
