@@ -46,6 +46,11 @@ spec:
             - eastus
             - eastus2
             - centralus
+          ui:options:
+            enumNames:
+              - East US
+              - East US 2
+              - Central US
           default: eastus
 
         kubernetesVersion:
