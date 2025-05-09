@@ -66,15 +66,15 @@ spec:
           title: Node SKU Type
           type: string
           description: Azure VM size for the nodes
+          enum:
+            - Standard_D2pds_v5
+            - Standard_D4pds_v5
+            - Standard_D8pds_v5
           ui:options:
             enumNames:
               - Standard_D2pds_v5 (2 vCPUs, 8 GiB memory)
               - Standard_D4pds_v5 (4 vCPUs, 16 GiB memory)
               - Standard_D8pds_v5 (8 vCPUs, 32 GiB memory)
-          enum:
-            - Standard_D2pds_v5
-            - Standard_D4pds_v5
-            - Standard_D8pds_v5
           default: Standard_D2pds_v5
 
         nodeCount:
