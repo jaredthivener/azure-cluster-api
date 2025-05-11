@@ -1,11 +1,10 @@
-apiVersion: backstage.io/v1beta3
-kind: Component
+apiVersion: backstage.io/v1alpha1
+kind: Resource
 metadata:
   name: ${{ values.clusterName }}
-  description: AKS Cluster ${{ values.clusterName }}
+  description: Azure Kubernetes cluster deployed via Cluster API
   annotations:
-    backstage.io/techdocs-ref: dir:.
+    backstage.io/kubernetes-id: ${{ values.clusterName }}
 spec:
-  type: infrastructure
-  lifecycle: experimental
-  owner: platform-team
+  type: kubernetes-cluster
+  owner: ${{ values.owner }}
