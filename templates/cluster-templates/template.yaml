@@ -135,6 +135,29 @@ spec:
         files:
           - ./content/catalog-info.yaml
 
+    - id: generate-cluster-entity
+      name: Generate Backstage Cluster Entity
+      action: fetch:template
+      input:
+        url: https://github.com/jaredthivener/azure-cluster-api/tree/main/templates/backstage-templates/cluster-entity
+        values:
+          clusterName: ${{ parameters.clusterName }}
+          owner: guest
+        targetPath: ./tmp-catalog
+
+    - id: register-cluster
+      name: Register Cluster in Backstage Catalog
+      action: catalog:register
+      input:
+        catalogInfoPath: ./tmp-catalog/catalog-info.yaml
+
+    - id: cleanup-tmp-catalog
+      name: Clean up temporary catalog files
+      action: fs:delete
+      input:
+        files:
+          - ./tmp-catalog/catalog-info.yaml
+
     - id: publish-cluster
       name: Publish Cluster YAML
       action: publish:github:pull-request
