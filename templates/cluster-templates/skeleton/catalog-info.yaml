@@ -1,10 +1,10 @@
 apiVersion: backstage.io/v1alpha1
-kind: Resource
+kind: ${{ values.entityKind }}
 metadata:
   name: ${{ values.clusterName }}
-  description: Azure Kubernetes cluster deployed via Cluster API
+  description: ${{ values.entityDescription }}
   annotations:
-    backstage.io/kubernetes-id: ${{ values.clusterName }}
+    ${{ values.annotationKey }}: ${{ values.annotationValue }}
 spec:
-  type: kubernetes-cluster
+  type: ${{ values.resourceType }}
   owner: ${{ values.owner }}
