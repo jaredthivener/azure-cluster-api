@@ -2,6 +2,9 @@
 *.log
 setup-backstage-capi-*.log
 
+# Draw.io files
+*.bkp
+
 # Environment variables and secrets
 .env
 *.env
