@@ -23,7 +23,7 @@ AAD_ADMIN_GROUP_ID=""
 # GitHub configuration
 GITHUB_ORG="jaredthivener"
 GITHUB_REPO="backstage-on-aks"
-GITHUB_TOKEN="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" # Replace this with a new GitHub personal access token that has the right permissions
+GITHUB_TOKEN="" # Replace this with a new GitHub personal access token that has the right permissions
 # For FluxCD, you need at least the following permissions:
 # - repo (full access)
 # - admin:repo_hook (read/write)
@@ -298,18 +298,17 @@ EOF
         log "ERROR" "Failed to create AzureClusterIdentity."
         return 1
     }
+        # Verify installation
+    log "INFO" "Verifying Cluster API installation..."
+    kubectl get pods -n capz-system
+    kubectl get pods -n capi-system
 
     log "INFO" "Cluster API installed successfully."
+    return 0
     else
         log "INFO" "Cluster API appears to be already installed."
     fi
     
-    # Verify installation
-    log "INFO" "Verifying Cluster API installation..."
-    kubectl get pods -n capz-system
-    kubectl get pods -n capi-system
-    
-    return 0
 }
 
 # Set up FluxCD on the management cluster
