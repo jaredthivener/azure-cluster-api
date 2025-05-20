@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup-backstage-capi.sh - Automates the setup of Backstage with Cluster API for self-service AKS provisioning
+# setup-backstage-capi.sh - Automates the setup of AKS with Cluster API for self-service AKS provisioning
 # Created by: Jared Thivener
 # Creation Date: 2025-04-05
 
@@ -22,7 +22,7 @@ AAD_ADMIN_GROUP_ID=""
 
 # GitHub configuration
 GITHUB_ORG="jaredthivener"
-GITHUB_REPO="backstage-on-aks"
+GITHUB_REPO="azure-cluster-api"
 GITHUB_TOKEN="" # Replace this with a new GitHub personal access token that has the right permissions
 # For FluxCD, you need at least the following permissions:
 # - repo (full access)
@@ -207,56 +207,45 @@ create_management_cluster() {
 # Install Cluster API with Azure provider
 install_cluster_api() {
     log "INFO" "Checking if Cluster API is already installed..."
-    if ! kubectl get namespace capi-system &>/dev/null; then
-        log "INFO" "Setting up prerequisites for Cluster API..."
-        
-        # Use the service principal already created for ClusterAPI
-        local sp_name
-        sp_name="ClusterAPI-Creator-$(date +%Y%m%d)"
-        local sp_output
-        local appId
-        local password
-        local tenantId
-        
-        log "INFO" "Creating service principal ${sp_name} for CAPI initialization..."
-        sp_output=$(az ad sp create-for-rbac \
-            --name "${sp_name}" \
-            --role Contributor \
-            --scopes "/subscriptions/${AZURE_SUBSCRIPTION_ID}" \
-            --output json)
-        
-        if [[ -z "$sp_output" ]]; then
-            log "ERROR" "Failed to create service principal for CAPI."
-            return 1
-        fi
-        
-        # Extract values from SP creation output
-        appId=$(echo "$sp_output" | grep '"appId"' | sed 's/.*"appId": "\([^"]*\)".*/\1/')
-        password=$(echo "$sp_output" | grep '"password"' | sed 's/.*"password": "\([^"]*\)".*/\1/')
-        tenantId=$(echo "$sp_output" | grep '"tenant"' | sed 's/.*"tenant": "\([^"]*\)".*/\1/')
-        
-        # Export required environment variables
-        export AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
-        export AZURE_TENANT_ID="${tenantId}"
-        export AZURE_CLIENT_ID="${appId}"
-        export AZURE_CLIENT_SECRET="${password}"
-        
-        # Settings needed for AzureClusterIdentity used by the AzureCluster
-        export AZURE_CLUSTER_IDENTITY_SECRET_NAME="cluster-identity-secret"
-        export CLUSTER_IDENTITY_NAME="cluster-identity"
-        export AZURE_CLUSTER_IDENTITY_SECRET_NAMESPACE="default"
-        
-        # Create or update the secret for the Service Principal identity created in Azure
-        log "INFO" "Creating or updating Kubernetes secret for CAPI service principal..."
-        kubectl create secret generic "${AZURE_CLUSTER_IDENTITY_SECRET_NAME}" \
-            --from-literal=clientSecret="${AZURE_CLIENT_SECRET}" \
-            --namespace "${AZURE_CLUSTER_IDENTITY_SECRET_NAMESPACE}" \
-            --dry-run=client -o yaml | kubectl apply -f - || {
-            log "ERROR" "Failed to create or update Kubernetes secret for CAPI."
-            return 1
-        }
+    if kubectl get namespace capi-system &>/dev/null; then
+        log "INFO" "Cluster API appears to be already installed."
+        return 0
+    fi
 
-            # Create AzureClusterIdentity resource with updated format
+    log "INFO" "Setting up prerequisites for Cluster API..."
+
+    local sp_name
+    sp_name="ClusterAPI-Creator-$(date +%Y%m%d)"
+    log "INFO" "Creating service principal ${sp_name} for CAPI initialization..."
+    local sp_output
+    if ! sp_output=$(az ad sp create-for-rbac \
+        --name "${sp_name}" \
+        --role Contributor \
+        --scopes "/subscriptions/${AZURE_SUBSCRIPTION_ID}" \
+        --output json); then
+        log "ERROR" "Failed to create service principal for CAPI."
+        return 1
+    fi
+
+    local appId password tenantId
+    appId=$(echo "$sp_output" | jq -r .appId)
+    password=$(echo "$sp_output" | jq -r .password)
+    tenantId=$(echo "$sp_output" | jq -r .tenant)
+
+    export AZURE_SUBSCRIPTION_ID AZURE_TENANT_ID="$tenantId" AZURE_CLIENT_ID="$appId" AZURE_CLIENT_SECRET="$password"
+    local secret_name="cluster-identity-secret"
+    local identity_name="cluster-identity"
+    local secret_namespace="default"
+
+    log "INFO" "Creating or updating Kubernetes secret for CAPI service principal..."
+    kubectl create secret generic "$secret_name" \
+        --from-literal=clientSecret="$AZURE_CLIENT_SECRET" \
+        --namespace "$secret_namespace" \
+        --dry-run=client -o yaml | kubectl apply -f - || {
+        log "ERROR" "Failed to create or update Kubernetes secret for CAPI."
+        return 1
+    }
+
     log "INFO" "Installing Cluster API with Azure provider..."
     clusterctl init --infrastructure azure || {
         log "ERROR" "Failed to install Cluster API."
@@ -264,86 +253,72 @@ install_cluster_api() {
     }
 
     log "INFO" "Waiting for Cluster API components to be ready..."
-    kubectl wait --for=condition=ready --timeout=300s pod -l cluster.x-k8s.io/provider=cluster-api -n capi-system || {
-        log "WARN" "Timeout waiting for Cluster API pods. Continuing anyway."
-    }
-    kubectl wait --for=condition=ready --timeout=300s pod -l cluster.x-k8s.io/provider=infrastructure-azure -n capz-system || {
-        log "WARN" "Timeout waiting for CAPZ pods. Continuing anyway."
-    }
+    kubectl wait --for=condition=ready --timeout=300s pod -l cluster.x-k8s.io/provider=cluster-api -n capi-system || log "WARN" "Timeout waiting for Cluster API pods."
+    kubectl wait --for=condition=ready --timeout=300s pod -l cluster.x-k8s.io/provider=infrastructure-azure -n capz-system || log "WARN" "Timeout waiting for CAPZ pods."
 
-    # Now create the AzureClusterIdentity resource (after CRDs are installed)
     log "INFO" "Creating AzureClusterIdentity resource..."
-
     cat <<EOF | kubectl apply -f -
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureClusterIdentity
 metadata:
-  name: cluster-identity
-  namespace: default
+  name: $identity_name
+  namespace: $secret_namespace
 spec:
   type: ServicePrincipal
-  clientID: ${appId}
+  clientID: $appId
   clientSecret:
-    name: cluster-identity-secret
-    namespace: default
-  tenantID: ${tenantId}
+    name: $secret_name
+    namespace: $secret_namespace
+  tenantID: $tenantId
   allowedNamespaces:
     list:
-      - default
+      - $secret_namespace
 EOF
 
-    # Verify identity creation
     log "INFO" "Verifying AzureClusterIdentity creation..."
-    kubectl get azureclusteridentity cluster-identity || {
+    kubectl get azureclusteridentity "$identity_name" || {
         log "ERROR" "Failed to create AzureClusterIdentity."
         return 1
     }
-        # Verify installation
+
     log "INFO" "Verifying Cluster API installation..."
     kubectl get pods -n capz-system
     kubectl get pods -n capi-system
 
     log "INFO" "Cluster API installed successfully."
     return 0
-    else
-        log "INFO" "Cluster API appears to be already installed."
-    fi
-    
 }
 
 # Set up FluxCD on the management cluster
 setup_flux() {
     log "INFO" "Checking if FluxCD is already installed..."
-    if ! kubectl get namespace flux-system &>/dev/null; then
-        log "INFO" "Checking FluxCD prerequisites..."
-        
-        # Export GitHub token to environment variable
-        export GITHUB_TOKEN="${GITHUB_TOKEN}"
-        
-        flux check --pre || {
-            log "ERROR" "FluxCD prerequisites not met."
-            return 1
-        }
-        
-        log "INFO" "Installing FluxCD with GitHub integration..."
-        flux bootstrap github \
-            --owner="${GITHUB_ORG}" \
-            --repository="${GITHUB_REPO}" \
-            --branch=main \
-            --path=clusters \
-            --personal --token-auth \
-            --token="${GITHUB_TOKEN}" || {
-            log "ERROR" "Failed to bootstrap FluxCD."
-            return 1
-        }
-    else
+    if kubectl get namespace flux-system &>/dev/null; then
         log "INFO" "FluxCD appears to be already installed."
+        return 0
     fi
-    
-    # Verify FluxCD installation
+
+    log "INFO" "Checking FluxCD prerequisites..."
+    export GITHUB_TOKEN
+    flux check --pre || {
+        log "ERROR" "FluxCD prerequisites not met."
+        return 1
+    }
+
+    log "INFO" "Installing FluxCD with GitHub integration..."
+    flux bootstrap github \
+        --owner="$GITHUB_ORG" \
+        --repository="$GITHUB_REPO" \
+        --branch=main \
+        --path=clusters \
+        --personal --token-auth \
+        --token="$GITHUB_TOKEN" || {
+        log "ERROR" "Failed to bootstrap FluxCD."
+        return 1
+    }
+
     log "INFO" "Verifying FluxCD installation..."
     kubectl get pods -n flux-system
-    
+
     return 0
 }
 
