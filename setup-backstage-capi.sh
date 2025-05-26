@@ -24,10 +24,6 @@ AAD_ADMIN_GROUP_ID=""
 GITHUB_ORG="jaredthivener"
 GITHUB_REPO="azure-cluster-api"
 GITHUB_TOKEN="" # Replace this with a new GitHub personal access token that has the right permissions
-# For FluxCD, you need at least the following permissions:
-# - repo (full access)
-# - admin:repo_hook (read/write)
-# GITHUB_USER="jaredthivener"
 
 # Then, in the script, check if it's set:
 if [[ -z "${GITHUB_TOKEN}" ]]; then
