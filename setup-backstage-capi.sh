@@ -145,6 +145,7 @@ create_management_cluster() {
             --node-vm-size Standard_D2d_v5 \
             --ssh-access disabled \
             --enable-managed-identity \
+            --enable-workload-identity \
             --enable-oidc-issuer \
             --network-plugin azure \
             --network-dataplane cilium \
