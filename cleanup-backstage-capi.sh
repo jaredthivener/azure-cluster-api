@@ -3,9 +3,7 @@
 # Created by: GitHub Copilot for jaredthivener
 # Creation Date: 2025-04-05
 
-set -o errexit
-set -o nounset
-set -o pipefail
+set -euo pipefail
 
 # =============================================================================
 #                             CONFIGURATION
