@@ -15,7 +15,6 @@ AZURE_LOCATION="eastus"
 RESOURCE_GROUP_NAME="rg-mgmt-aks-${AZURE_LOCATION}"
 MGMT_CLUSTER_NAME="mgmt-capi-cluster"
 K8S_VERSION="1.32.3"
-CNI_PLUGIN="cilium"
 
 # AAD Admin Group ID - if left empty, will use current user
 AAD_ADMIN_GROUP_ID=""
@@ -151,7 +150,7 @@ create_management_cluster() {
             --network-plugin azure \
             --network-plugin-mode overlay \
             --network-dataplane cilium \
-            --network-policy ${CNI_PLUGIN} \
+            --network-policy cilium \
             --zones 1 2 3 \
             --kubernetes-version "${K8S_VERSION}" \
             --enable-addons monitoring \
