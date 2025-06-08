@@ -122,15 +122,15 @@ spec:
         resourceGroup:      ${{ parameters.clusterName }}
       targetPath: ./content
 
-  - id: add-catalog-info
-    name: Add catalog-info.yaml
-    action: fs:template
-    input:
-      targetPath: ./content/catalog-info.yaml
-      templateFile: ./catalog-info.yaml.hbs
-      values:
-        clusterName: ${{ parameters.clusterName }}
-        region:      ${{ parameters.region }}
+  # - id: add-catalog-info
+  #   name: Add catalog-info.yaml
+  #   action: fs:template
+  #   input:
+  #     targetPath: ./content/catalog-info.yaml
+  #     templateFile: ./catalog-info.yaml.hbs
+  #     values:
+  #       clusterName: ${{ parameters.clusterName }}
+  #       region:      ${{ parameters.region }}
 
   - id: debug-list-content
     name: List content directory
