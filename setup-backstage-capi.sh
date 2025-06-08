@@ -141,13 +141,15 @@ create_management_cluster() {
         az aks create \
             --resource-group "${RESOURCE_GROUP_NAME}" \
             --name "${MGMT_CLUSTER_NAME}" \
-            --node-count 2 \
-            --node-vm-size Standard_D2d_v5 \
+            --node-count 3 \
+            --node-vm-size Standard_D2pds_v5 \
             --ssh-access disabled \
+            --disable-local-accounts \
             --enable-managed-identity \
             --enable-workload-identity \
             --enable-oidc-issuer \
             --network-plugin azure \
+            --network-plugin-mode overlay \
             --network-dataplane cilium \
             --network-policy ${CNI_PLUGIN} \
             --zones 1 2 3 \
@@ -158,9 +160,13 @@ create_management_cluster() {
             --enable-azure-rbac \
             --enable-msi-auth-for-monitoring \
             --auto-upgrade-channel stable \
-            --node-osdisk-size 75 \
+            --node-osdisk-size 64 \
             --node-osdisk-type Ephemeral \
             --max-pods 110 \
+            --enable-cluster-autoscaler \
+            --min-count 1 \
+            --max-count 5 \
+            --enable-vpa \
             --os-sku AzureLinux \
             --tags environment=management purpose=clusterapi owner=jared || {
             log "ERROR" "Failed to create AKS cluster."
