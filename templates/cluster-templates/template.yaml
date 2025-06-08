@@ -107,45 +107,48 @@ spec:
           description: Branch to commit to in the repository
 
   steps:
-    - id: fetch-template
-      name: Render Cluster YAML
-      action: fetch:template
-      input:
-        url: https://github.com/jaredthivener/azure-cluster-api/tree/main/templates/cluster-templates/skeleton
-        values:
-          clusterName:        ${{ parameters.clusterName }}
-          region:             ${{ parameters.region }}
-          kubernetesVersion:  ${{ parameters.kubernetesVersion }}
-          subscriptionId:     ${{ parameters.subscriptionId }}
-          nodeSku:            ${{ parameters.nodeSku }}
-          nodeCount:          ${{ parameters.nodeCount }}
-          resourceGroup:      ${{ parameters.clusterName }}
-        targetPath: ./content
+  - id: fetch-template
+    name: Render Cluster YAML
+    action: fetch:template
+    input:
+      url: https://github.com/jaredthivener/azure-cluster-api/tree/main/templates/cluster-templates/skeleton
+      values:
+        clusterName:        ${{ parameters.clusterName }}
+        region:             ${{ parameters.region }}
+        kubernetesVersion:  ${{ parameters.kubernetesVersion }}
+        subscriptionId:     ${{ parameters.subscriptionId }}
+        nodeSku:            ${{ parameters.nodeSku }}
+        nodeCount:          ${{ parameters.nodeCount }}
+        resourceGroup:      ${{ parameters.clusterName }}
+      targetPath: ./content
 
-    - id: debug-list-content
-      name: List content directory
-      action: debug:log
-      input:
-        listWorkspace: true
+  - id: add-catalog-info
+    name: Add catalog-info.yaml
+    action: fs:template
+    input:
+      targetPath: ./content/catalog-info.yaml
+      templateFile: ./catalog-info.yaml.hbs
+      values:
+        clusterName: ${{ parameters.clusterName }}
+        region:      ${{ parameters.region }}
 
-    # - id: remove-catalog-info
-    #   name: Remove catalog info file
-    #   action: fs:delete
-    #   input:
-    #     files:
-    #       - ./content/catalog-info.yaml
+  - id: debug-list-content
+    name: List content directory
+    action: debug:log
+    input:
+      listWorkspace: true
 
-    - id: publish-cluster
-      name: Publish Cluster YAML
-      action: publish:github:pull-request
-      input:
-        repoUrl:     ${{ parameters.repoUrl }}
-        branchName:  cluster-api/${{ parameters.clusterName }}
-        title:       "Add Cluster YAML for ${{ parameters.clusterName }}"
-        description: "Automated PR from Backstage template"
-        sourcePath:  ./content
-        targetPath:  clusters/${{ parameters.clusterName }}
-        update:      true
+  - id: publish-cluster
+    name: Publish Cluster YAML
+    action: publish:github:pull-request
+    input:
+      repoUrl:     ${{ parameters.repoUrl }}
+      branchName:  cluster-api/${{ parameters.clusterName }}
+      title:       "Add Cluster YAML for ${{ parameters.clusterName }}"
+      description: "Automated PR from Backstage template"
+      sourcePath:  ./content
+      targetPath:  clusters/${{ parameters.clusterName }}
+      update:      true
 
   output:
     links:
