@@ -21,7 +21,7 @@ This repository provides automation scripts to set up and tear down an **Azure K
 
 1. **Clone the repository:**  
    ```sh
-   git clone https://github.com/<your-org-or-username>/azure-cluster-api.git
+   git clone https://github.com/jaredthivener/azure-cluster-api.git
    cd azure-cluster-api
    ```
 
