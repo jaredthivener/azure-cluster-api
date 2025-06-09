@@ -234,7 +234,11 @@ install_cluster_api() {
     password=$(echo "$sp_output" | jq -r .password)
     tenantId=$(echo "$sp_output" | jq -r .tenant)
 
-    export AZURE_SUBSCRIPTION_ID AZURE_TENANT_ID="$tenantId" AZURE_CLIENT_ID="$appId" AZURE_CLIENT_SECRET="$password"
+    export AZURE_SUBSCRIPTION_ID 
+    export AZURE_CLIENT_ID="$appId"
+    export AZURE_CLIENT_SECRET="$password"
+    export AZURE_TENANT_ID="$tenantId"
+    
     local secret_name="cluster-identity-secret"
     local identity_name="cluster-identity"
     local secret_namespace="default"
