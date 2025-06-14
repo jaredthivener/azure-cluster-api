@@ -143,7 +143,6 @@ create_management_cluster() {
             --node-count 3 \
             --node-vm-size Standard_D2pds_v5 \
             --ssh-access disabled \
-            --disable-local-accounts \
             --enable-managed-identity \
             --enable-workload-identity \
             --enable-oidc-issuer \
