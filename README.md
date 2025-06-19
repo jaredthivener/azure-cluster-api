@@ -1,4 +1,4 @@
-# 🚀 Azure Cluster API Automation
+# 🚀 Azure Cluster API Automation ⚙️
 
 This repository provides automation scripts to set up and tear down an **Azure Kubernetes Service (AKS)** management cluster with **Cluster API (CAPI)** and GitOps using **FluxCD**. The scripts are designed for self-service AKS provisioning and management, following best practices for Azure and Kubernetes.
 
