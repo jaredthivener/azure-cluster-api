@@ -280,36 +280,18 @@ cleanup_service_principals() {
     for app_id in "${app_ids[@]}"; do
         display_name=$(echo "$sp_data" | jq -r ".[] | select(.AppId == \"$app_id\") | .DisplayName")
         log "INFO" "Deleting service principal ${display_name} (AppID: ${app_id})..."
-        
-        # First try to delete the enterprise app (service principal)
-        log "DEBUG" "Attempting to delete service principal..."
-        if az ad sp delete --id "$app_id" 2>/dev/null; then
-            log "INFO" "Service principal deleted successfully."
-        else
-            log "WARN" "Failed to delete service principal directly. Trying to delete the app registration..."
-            
-            # If SP deletion fails, try deleting the app registration
+
+
+        # Try to delete the app registration
+        for attempt in {1..5}; do
             if az ad app delete --id "$app_id" 2>/dev/null; then
                 log "INFO" "App registration deleted successfully."
+                break
             else
-                # Try with the newer Azure CLI syntax which might use object ID instead
-                log "WARN" "Standard deletion failed. Trying alternative approach..."
-                
-                # Get the object ID of the app
-                object_id=$(az ad app show --id "$app_id" --query id -o tsv 2>/dev/null)
-                if [[ -n "$object_id" ]]; then
-                    if az ad app delete --id "$object_id" 2>/dev/null; then
-                        log "INFO" "App registration deleted successfully using object ID."
-                    else
-                        log "ERROR" "Failed to delete service principal. You may need to delete it manually."
-                        log "ERROR" "   - App ID: $app_id"
-                        log "ERROR" "   - Display Name: $display_name"
-                    fi
-                else
-                    log "ERROR" "Failed to get object ID for app $app_id. Manual cleanup required."
-                fi
+                log "WARN" "Attempt $attempt: Failed to delete app registration. Retrying in 10s..."
+                sleep 10
             fi
-        fi
+        done
     done
     
     # Verify deletion with retries

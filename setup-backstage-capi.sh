@@ -242,7 +242,7 @@ install_cluster_api() {
     local identity_name="cluster-identity"
     local secret_namespace="default"
 
-    log "INFO" "Creating or updating Kubernetes secret for CAPI service principal..."
+    log "INFO" "Creating Kubernetes secret for CAPI service principal..."
     kubectl create secret generic "$secret_name" \
         --from-literal=clientSecret="$AZURE_CLIENT_SECRET" \
         --namespace "$secret_namespace" \
