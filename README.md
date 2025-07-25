@@ -26,12 +26,12 @@ This repository provides automation scripts to set up and tear down an **Azure K
    ```
 
 2. **Configure the scripts:**  
-   - ✏️ Edit `setup-backstage-capi.sh` and update the Azure and GitHub configuration variables at the top of the script as needed.
+   - ✏️ Edit `setup.sh` and update the Azure and GitHub configuration variables at the top of the script as needed.
    - 🔑 Ensure your GitHub PAT is set in the `GITHUB_TOKEN` variable or will be prompted at runtime.
 
 3. **Run the setup script:**  
    ```sh
-   ./setup-backstage-capi.sh
+   ./setup.sh
    ```
    This will:
    - ✅ Verify prerequisites
@@ -47,7 +47,7 @@ This repository provides automation scripts to set up and tear down an **Azure K
 To remove all resources created by the setup script, run:
 
 ```sh
-./cleanup-backstage-capi.sh
+./cleanup.sh
 ```
 
 🛑 You will be prompted for confirmation before destructive actions.
