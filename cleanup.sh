@@ -28,6 +28,16 @@ LOG_LEVEL="INFO"  # DEBUG, INFO, WARN, ERROR
 # =============================================================================
 #                             HELPER FUNCTIONS
 # =============================================================================
+# Verify tool is installed (lightweight)
+verify_tool() {
+    local tool="$1"
+    if ! command -v "$tool" &>/dev/null; then
+        log "ERROR" "$tool not found. Please install $tool first."
+        return 1
+    fi
+    return 0
+}
+
 
 # Logging function
 log() {
@@ -87,11 +97,17 @@ confirm_action() {
 
 # Remove all child clusters created by CAPI
 remove_capi_clusters() {
-    # If we're going to delete the whole management cluster anyway,
-    # we can skip this step entirely
-    if confirm_action "Will you be deleting the entire AKS management cluster?" "Y"; then
+    # If we're going to delete the whole management cluster or whole RG, skip
+    if [[ "${DELETE_ALL_RG:-N}" == "Y" ]]; then
         log "INFO" "Skipping CAPI clusters cleanup since the entire AKS cluster will be deleted."
         return 0
+    fi
+    # Back-compat prompt if global flag not set
+    if [[ "${DELETE_ALL_RG:-}" != "Y" ]]; then
+        if confirm_action "Will you be deleting the entire AKS management cluster?" "Y"; then
+            log "INFO" "Skipping CAPI clusters cleanup since the entire AKS cluster will be deleted."
+            return 0
+        fi
     fi
     
     log "INFO" "Checking for CAPI-managed clusters..."
@@ -135,11 +151,17 @@ remove_capi_clusters() {
 
 # Remove FluxCD from management cluster
 remove_flux() {
-    # If we're going to delete the whole management cluster anyway,
-    # we can skip this step entirely
-    if confirm_action "Will you be deleting the entire AKS management cluster?" "Y"; then
+    # If we're going to delete the whole management cluster or whole RG, skip
+    if [[ "${DELETE_ALL_RG:-N}" == "Y" ]]; then
         log "INFO" "Skipping FluxCD cleanup since the entire AKS cluster will be deleted."
         return 0
+    fi
+    # Back-compat prompt if global flag not set
+    if [[ "${DELETE_ALL_RG:-}" != "Y" ]]; then
+        if confirm_action "Will you be deleting the entire AKS management cluster?" "Y"; then
+            log "INFO" "Skipping FluxCD cleanup since the entire AKS cluster will be deleted."
+            return 0
+        fi
     fi
     
     log "INFO" "Checking if FluxCD is installed..."
@@ -153,11 +175,20 @@ remove_flux() {
         log "INFO" "Skipping FluxCD uninstallation."
         return 0
     fi
-    
+
     log "INFO" "Uninstalling FluxCD..."
-    kubectl delete namespace flux-system || {
-        log "WARN" "Failed to delete flux-system namespace. Some resources may need manual cleanup."
-    }
+    if command -v flux &>/dev/null; then
+        if ! flux uninstall --silent; then
+            log "WARN" "flux uninstall failed, falling back to namespace deletion."
+            kubectl delete namespace flux-system || {
+                log "WARN" "Failed to delete flux-system namespace. Some resources may need manual cleanup."
+            }
+        fi
+    else
+        kubectl delete namespace flux-system || {
+            log "WARN" "Failed to delete flux-system namespace. Some resources may need manual cleanup."
+        }
+    fi
     
     log "INFO" "FluxCD removed successfully."
     return 0
@@ -165,11 +196,17 @@ remove_flux() {
 
 # Remove Cluster API from management cluster
 remove_capi() {
-    # If we're going to delete the whole management cluster anyway,
-    # we can skip this step entirely
-    if confirm_action "Will you be deleting the entire AKS management cluster?" "Y"; then
+    # If we're going to delete the whole management cluster or whole RG, skip
+    if [[ "${DELETE_ALL_RG:-N}" == "Y" ]]; then
         log "INFO" "Skipping Cluster API cleanup since the entire AKS cluster will be deleted."
         return 0
+    fi
+    # Back-compat prompt if global flag not set
+    if [[ "${DELETE_ALL_RG:-}" != "Y" ]]; then
+        if confirm_action "Will you be deleting the entire AKS management cluster?" "Y"; then
+            log "INFO" "Skipping Cluster API cleanup since the entire AKS cluster will be deleted."
+            return 0
+        fi
     fi
     
     log "INFO" "Checking if Cluster API is installed..."
@@ -201,6 +238,36 @@ remove_capi() {
     
     log "INFO" "Cluster API removed successfully."
     return 0
+}
+
+# Remove AKS RBAC role assignment granted in setup (lab convenience)
+cleanup_aks_rbac_assignment() {
+    log "INFO" "Checking for AKS RBAC role assignment for the current user..."
+    local scope="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.ContainerService/managedClusters/${MGMT_CLUSTER_NAME}"
+    local user_object_id
+    user_object_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)
+    if [[ -z "$user_object_id" ]]; then
+        log "WARN" "Could not determine signed-in user object id. Skipping RBAC role cleanup."
+        return 0
+    fi
+
+    local assignment_id
+    assignment_id=$(az role assignment list --assignee "$user_object_id" --scope "$scope" --query "[?roleDefinitionName=='Azure Kubernetes Service RBAC Cluster Admin'].id | [0]" -o tsv 2>/dev/null || true)
+    if [[ -z "$assignment_id" ]]; then
+        log "INFO" "No matching AKS RBAC Cluster Admin assignment found for current user."
+        return 0
+    fi
+
+    log "INFO" "Found AKS RBAC Cluster Admin assignment to remove: $assignment_id"
+    if confirm_action "Do you want to remove your 'AKS RBAC Cluster Admin' role assignment on the management cluster?" "Y"; then
+        if ! az role assignment delete --ids "$assignment_id"; then
+            log "WARN" "Failed to remove role assignment $assignment_id. You may need to remove it manually."
+        else
+            log "INFO" "Role assignment removed."
+        fi
+    else
+        log "INFO" "Skipping RBAC role assignment removal."
+    fi
 }
 
 # Delete AKS management cluster
@@ -242,12 +309,11 @@ delete_resource_group() {
     fi
     
     log "INFO" "Deleting resource group ${RESOURCE_GROUP_NAME}..."
-    az group delete --name "${RESOURCE_GROUP_NAME}" --yes || {
+    az group delete --name "${RESOURCE_GROUP_NAME}" --yes --no-wait || {
         log "ERROR" "Failed to delete resource group."
         return 1
     }
-    
-    log "INFO" "Resource group deleted successfully."
+    log "INFO" "Resource group deletion requested. Use 'az group wait --deleted --name ${RESOURCE_GROUP_NAME}' to wait for completion."
     return 0
 }
 
@@ -371,6 +437,18 @@ main() {
         exit 1
     }
     
+    # Prerequisite checks (tools used in this script)
+    verify_tool az || exit 1
+    verify_tool kubectl || exit 1
+    verify_tool jq || exit 1
+
+    # Ask once whether we're deleting the entire resource group to optimize prompts
+    if confirm_action "Will you be deleting the entire resource group ${RESOURCE_GROUP_NAME}?" "Y"; then
+        DELETE_ALL_RG="Y"
+    else
+        DELETE_ALL_RG="N"
+    fi
+
     # Step 1: Connect to AKS and delete any CAPI managed clusters
     log "INFO" "
     ╭──────────────────────────────────────────────────────╮
@@ -461,7 +539,7 @@ main() {
             az group delete --name "${RESOURCE_GROUP_NAME}" --yes --no-wait || {
                 log "ERROR" "Failed to delete resource group."
             }
-            log "INFO" "Resource group deleted successfully."
+            log "INFO" "Resource group deletion requested. Use 'az group wait --deleted --name ${RESOURCE_GROUP_NAME}' to wait for completion."
         else
             log "INFO" "Skipping resource group deletion."
         fi
@@ -484,7 +562,10 @@ main() {
     ╰──────────────────────────────────────────────────────╯"
     cleanup_service_principals
 
-    # Step 4: Remove Backstage installation (REMOVED)
+    # Step 4: Remove lab RBAC role assignment on AKS (if it exists)
+    cleanup_aks_rbac_assignment
+
+    # Step 5: Remove Backstage installation (REMOVED)
     # log "INFO" "
     # ╭──────────────────────────────────────────────────────╮
     # │                                                      │

@@ -142,14 +142,13 @@ create_management_cluster() {
             --name "${MGMT_CLUSTER_NAME}" \
             --node-count 3 \
             --node-vm-size Standard_D2pds_v5 \
-            --ssh-access disabled \
+            --generate-ssh-keys \
             --enable-managed-identity \
             --enable-workload-identity \
             --enable-oidc-issuer \
             --network-plugin azure \
             --network-plugin-mode overlay \
             --network-dataplane cilium \
-            --network-policy cilium \
             --zones 1 2 3 \
             --kubernetes-version "${K8S_VERSION}" \
             --enable-addons monitoring \
@@ -186,9 +185,10 @@ create_management_cluster() {
     kubectl get nodes -o wide || {
         # If regular access fails, try with admin credentials
         log "WARN" "Regular access failed, trying with admin credentials..."
+        # With Azure RBAC enabled, grant RBAC Cluster Admin so kubectl works without --admin context (lab convenience)
         az role assignment create \
             --assignee "$(az ad signed-in-user show --query id -o tsv)" \
-            --role "Azure Kubernetes Service Cluster Admin Role" \
+            --role "Azure Kubernetes Service RBAC Cluster Admin" \
             --scope "/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP_NAME}/providers/Microsoft.ContainerService/managedClusters/${MGMT_CLUSTER_NAME}" || {
             log "ERROR" "Failed to assign admin role. Please ensure you have sufficient permissions."
             return 1
@@ -353,10 +353,8 @@ main() {
         check_value "GITHUB_ORG" "$GITHUB_ORG" || exit 1
     }
     
-    check_value "GITHUB_TOKEN" "$GITHUB_TOKEN" || { 
-        read -r -p "Enter your GitHub Personal Access Token: " GITHUB_TOKEN
-        check_value "GITHUB_TOKEN" "$GITHUB_TOKEN" || exit 1
-    }
+    # GITHUB_TOKEN already prompted above; ensure it's exported
+    export GITHUB_TOKEN
     
     # Verify prerequisites are installed
     log "INFO" "
@@ -377,6 +375,20 @@ main() {
     verify_tool "flux" "flux --version" "2.1.0" || exit 1
     verify_tool "clusterctl" "clusterctl version" "1.5.0" || exit 1
     verify_tool "helm" "helm version" "3.13.0" || exit 1
+    verify_tool "jq" "jq --version" "1.6" || exit 1
+
+    # Optionally auto-select a supported AKS version if K8S_VERSION is set to "auto"
+    if [[ "${K8S_VERSION}" == "auto" ]]; then
+        log "INFO" "Discovering default supported AKS version in ${AZURE_LOCATION}..."
+        local detected
+        detected=$(az aks get-versions --location "${AZURE_LOCATION}" --query "orchestrators[?default].orchestratorVersion | [0]" -o tsv || true)
+        if [[ -n "$detected" ]]; then
+            K8S_VERSION="$detected"
+            log "INFO" "Using detected AKS version: ${K8S_VERSION}"
+        else
+            log "WARN" "Could not detect default AKS version; continuing with configured K8S_VERSION=${K8S_VERSION}"
+        fi
+    fi
     
     # Azure login
     log "INFO" "Logging in to Azure..."
