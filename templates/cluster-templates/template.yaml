@@ -57,10 +57,10 @@ spec:
           title: Kubernetes Version
           type: string
           enum:
-            - 1.32.3
-            - 1.31.7
-            - 1.30.11
-          default: 1.30.11
+            - 1.33.2
+            - 1.32.6
+            - 1.31.10
+          default: 1.32.6
 
         nodeSku:
           title: Node SKU Type
