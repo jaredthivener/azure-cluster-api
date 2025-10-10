@@ -11,11 +11,11 @@ spec:
       cidrBlocks: ["10.128.0.0/12"]
     serviceDomain: "cluster.local"
   controlPlaneRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiGroup: infrastructure.cluster.x-k8s.io
     kind: AzureManagedControlPlane
     name: ${{ values.clusterName }}
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiGroup: infrastructure.cluster.x-k8s.io
     kind: AzureManagedCluster
     name: ${{ values.clusterName }}
 ---
@@ -74,7 +74,7 @@ spec:
       clusterName: ${{ values.clusterName }}
       version: ${{ values.kubernetesVersion }}
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiGroup: infrastructure.cluster.x-k8s.io
         kind: AzureManagedMachinePool
         name: system
         namespace: default
@@ -110,7 +110,7 @@ spec:
       clusterName: ${{ values.clusterName }}
       version: ${{ values.kubernetesVersion }}
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiGroup: infrastructure.cluster.x-k8s.io
         kind: AzureManagedMachinePool
         name: app
         namespace: default
