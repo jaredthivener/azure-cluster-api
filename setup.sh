@@ -47,7 +47,7 @@ log() {
     timestamp=$(date +"%Y-%m-%d %H:%M:%S")
     
     # Only log if the current level is at or above the configured level
-    case $LOG_LEVEL in
+    case "$LOG_LEVEL" in
         DEBUG)
             ;;
         INFO)
