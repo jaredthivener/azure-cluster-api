@@ -164,6 +164,7 @@ create_management_cluster() {
             --min-count 1 \
             --max-count 5 \
             --os-sku AzureLinux \
+            --ssh-access disabled \
             --tags environment=management purpose=clusterapi owner=jared || {
             log "ERROR" "Failed to create AKS cluster."
             return 1
