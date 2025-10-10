@@ -142,7 +142,6 @@ create_management_cluster() {
             --name "${MGMT_CLUSTER_NAME}" \
             --node-count 3 \
             --node-vm-size Standard_D2pds_v5 \
-            --generate-ssh-keys \
             --enable-managed-identity \
             --enable-workload-identity \
             --enable-oidc-issuer \
