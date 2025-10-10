@@ -163,7 +163,6 @@ create_management_cluster() {
             --enable-cluster-autoscaler \
             --min-count 1 \
             --max-count 5 \
-            --enable-vpa \
             --os-sku AzureLinux \
             --tags environment=management purpose=clusterapi owner=jared || {
             log "ERROR" "Failed to create AKS cluster."
