@@ -11,11 +11,11 @@ spec:
       cidrBlocks: ["10.128.0.0/12"]
     serviceDomain: "cluster.local"
   controlPlaneRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiGroup: infrastructure.cluster.x-k8s.io
     kind: AzureManagedControlPlane
     name: aks-demo-01
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    apiGroup: infrastructure.cluster.x-k8s.io
     kind: AzureManagedCluster
     name: aks-demo-01
 ---
@@ -74,7 +74,7 @@ spec:
       clusterName: aks-demo-01
       version: 1.32.6
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiGroup: infrastructure.cluster.x-k8s.io
         kind: AzureManagedMachinePool
         name: system
         namespace: default
@@ -110,7 +110,7 @@ spec:
       clusterName: aks-demo-01
       version: 1.32.6
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        apiGroup: infrastructure.cluster.x-k8s.io
         kind: AzureManagedMachinePool
         name: app
         namespace: default
