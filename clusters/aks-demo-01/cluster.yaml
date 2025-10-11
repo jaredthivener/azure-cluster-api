@@ -67,7 +67,8 @@ spec:
   clusterName: aks-demo-01
   replicas: 2
   template:
-    metadata: {}
+    metadata:
+      labels: {}
     spec:
       bootstrap:
         dataSecretName: ""
@@ -102,7 +103,8 @@ spec:
   clusterName: aks-demo-01
   replicas: 3
   template:
-    metadata: {}
+    metadata:
+      labels: {}
     spec:
       bootstrap:
         dataSecretName: ""
