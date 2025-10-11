@@ -12,21 +12,21 @@ spec:
     serviceDomain: "cluster.local"
   controlPlaneRef:
     apiGroup: infrastructure.cluster.x-k8s.io
-    kind: AzureManagedControlPlane
+    kind: AzureASOManagedControlPlane
     name: ${{ values.clusterName }}
   infrastructureRef:
     apiGroup: infrastructure.cluster.x-k8s.io
-    kind: AzureManagedCluster
+    kind: AzureASOManagedCluster
     name: ${{ values.clusterName }}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureManagedCluster
+kind: AzureASOManagedCluster
 metadata:
   name: ${{ values.clusterName }}
   namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureManagedControlPlane
+kind: AzureASOManagedControlPlane
 metadata:
   name: ${{ values.clusterName }}
   namespace: default
@@ -55,8 +55,8 @@ spec:
   sku:
     tier: Free
   addonProfiles:
-  - name: azureKeyvaultSecretsProvider
-    enabled: true
+    - name: azureKeyvaultSecretsProvider
+      enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachinePool
@@ -67,7 +67,8 @@ spec:
   clusterName: ${{ values.clusterName }}
   replicas: 2
   template:
-    metadata: {}
+    metadata:
+      labels: {}
     spec:
       bootstrap:
         dataSecretName: ""
@@ -75,12 +76,11 @@ spec:
       version: ${{ values.kubernetesVersion }}
       infrastructureRef:
         apiGroup: infrastructure.cluster.x-k8s.io
-        kind: AzureManagedMachinePool
+        kind: AzureASOManagedMachinePool
         name: system
-        namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureManagedMachinePool
+kind: AzureASOManagedMachinePool
 metadata:
   name: system
   namespace: default
@@ -103,7 +103,8 @@ spec:
   clusterName: ${{ values.clusterName }}
   replicas: ${{ values.nodeCount }}
   template:
-    metadata: {}
+    metadata:
+      labels: {}
     spec:
       bootstrap:
         dataSecretName: ""
@@ -111,12 +112,11 @@ spec:
       version: ${{ values.kubernetesVersion }}
       infrastructureRef:
         apiGroup: infrastructure.cluster.x-k8s.io
-        kind: AzureManagedMachinePool
+        kind: AzureASOManagedMachinePool
         name: app
-        namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureManagedMachinePool
+kind: AzureASOManagedMachinePool
 metadata:
   name: app
   namespace: default
