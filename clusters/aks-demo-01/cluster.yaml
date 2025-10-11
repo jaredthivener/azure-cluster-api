@@ -73,7 +73,7 @@ spec:
       bootstrap:
         dataSecretName: ""
       clusterName: aks-demo-01
-      version: 1.33.3
+      version: 1.32.6
       infrastructureRef:
         apiGroup: infrastructure.cluster.x-k8s.io
         kind: AzureManagedMachinePool
@@ -109,7 +109,7 @@ spec:
       bootstrap:
         dataSecretName: ""
       clusterName: aks-demo-01
-      version: 1.33.3
+      version: 1.32.6
       infrastructureRef:
         apiGroup: infrastructure.cluster.x-k8s.io
         kind: AzureManagedMachinePool
