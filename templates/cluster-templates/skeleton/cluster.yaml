@@ -1,4 +1,4 @@
-apiVersion: cluster.x-k8s.io/v1beta2
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: ${{ values.clusterName }}
@@ -11,22 +11,22 @@ spec:
       cidrBlocks: ["10.128.0.0/12"]
     serviceDomain: "cluster.local"
   controlPlaneRef:
-    apiGroup: infrastructure.cluster.x-k8s.io
-    kind: AzureASOManagedControlPlane
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedControlPlane
     name: ${{ values.clusterName }}
   infrastructureRef:
-    apiGroup: infrastructure.cluster.x-k8s.io
-    kind: AzureASOManagedCluster
+    apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+    kind: AzureManagedCluster
     name: ${{ values.clusterName }}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureASOManagedCluster
+kind: AzureManagedCluster
 metadata:
   name: ${{ values.clusterName }}
   namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureASOManagedControlPlane
+kind: AzureManagedControlPlane
 metadata:
   name: ${{ values.clusterName }}
   namespace: default
@@ -55,10 +55,10 @@ spec:
   sku:
     tier: Free
   addonProfiles:
-    - name: azureKeyvaultSecretsProvider
-      enabled: true
+  - name: azureKeyvaultSecretsProvider
+    enabled: true
 ---
-apiVersion: cluster.x-k8s.io/v1beta2
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: system
@@ -67,20 +67,20 @@ spec:
   clusterName: ${{ values.clusterName }}
   replicas: 2
   template:
-    metadata:
-      labels: {}
+    metadata: {}
     spec:
       bootstrap:
         dataSecretName: ""
       clusterName: ${{ values.clusterName }}
       version: ${{ values.kubernetesVersion }}
       infrastructureRef:
-        apiGroup: infrastructure.cluster.x-k8s.io
-        kind: AzureASOManagedMachinePool
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
         name: system
+        namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureASOManagedMachinePool
+kind: AzureManagedMachinePool
 metadata:
   name: system
   namespace: default
@@ -94,7 +94,7 @@ spec:
     - "2"
     - "3"
 ---
-apiVersion: cluster.x-k8s.io/v1beta2
+apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachinePool
 metadata:
   name: app
@@ -103,20 +103,20 @@ spec:
   clusterName: ${{ values.clusterName }}
   replicas: ${{ values.nodeCount }}
   template:
-    metadata:
-      labels: {}
+    metadata: {}
     spec:
       bootstrap:
         dataSecretName: ""
       clusterName: ${{ values.clusterName }}
       version: ${{ values.kubernetesVersion }}
       infrastructureRef:
-        apiGroup: infrastructure.cluster.x-k8s.io
-        kind: AzureASOManagedMachinePool
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+        kind: AzureManagedMachinePool
         name: app
+        namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-kind: AzureASOManagedMachinePool
+kind: AzureManagedMachinePool
 metadata:
   name: app
   namespace: default
