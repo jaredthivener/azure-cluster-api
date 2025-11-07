@@ -11,11 +11,11 @@ spec:
       cidrBlocks: ["10.128.0.0/12"]
     serviceDomain: "cluster.local"
   controlPlaneRef:
-    apiGroup: infrastructure.cluster.x-k8s.io
+    apiGroup: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AzureManagedControlPlane
     name: aks-demo-01
   infrastructureRef:
-    apiGroup: infrastructure.cluster.x-k8s.io
+    apiGroup: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AzureManagedCluster
     name: aks-demo-01
 ---
@@ -34,7 +34,7 @@ spec:
   resourceGroupName: rg-aks-demo-01
   location: eastus
   subscriptionID: f645938d-2368-4a99-b589-ea72e5544719
-  version: 1.33.3
+  version: 1.33.2
   networkPolicy: cilium
   networkPlugin: azure
   networkPluginMode: overlay
@@ -67,17 +67,17 @@ spec:
   clusterName: aks-demo-01
   replicas: 2
   template:
-    metadata:
-      labels: {}
+    metadata: {}
     spec:
       bootstrap:
         dataSecretName: ""
       clusterName: aks-demo-01
-      version: 1.32.6
+      version: 1.33.2
       infrastructureRef:
-        apiGroup: infrastructure.cluster.x-k8s.io
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
         name: system
+        namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
@@ -103,17 +103,17 @@ spec:
   clusterName: aks-demo-01
   replicas: 3
   template:
-    metadata:
-      labels: {}
+    metadata: {}
     spec:
       bootstrap:
         dataSecretName: ""
       clusterName: aks-demo-01
-      version: 1.32.6
+      version: 1.33.2
       infrastructureRef:
-        apiGroup: infrastructure.cluster.x-k8s.io
+        apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AzureManagedMachinePool
         name: app
+        namespace: default
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AzureManagedMachinePool
